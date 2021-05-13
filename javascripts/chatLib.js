@@ -4,6 +4,10 @@ const DEMO_CHANNEL_ID = 'demo channel';
 const client = new TalkPlus.Client({ appId: APP_ID });
 
 $(function () {
+	var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    $("html, body").css({"width":w,"height":h});
+	
 	// You can add Users inside JSON users section
 	var _json = {
 		users: [appUi.userId],
