@@ -129,11 +129,14 @@ ul > li:after {
 	font-size: 0.675rem;
 	margin-top: -1rem;
 }
-.msg > span.time {
+.time {
+	display: inline-block;
 	color: #CFD8DC;
 	font-size: 0.5rem;
-	bottom: -0.35rem;
-	display: none;
+	margin-top: 20px;
+	margin-left: 5px;
+	/* bottom: -0.35rem; */
+	/* display: none; */
 }
 .msg:hover span.time { display: block; }
 .msg.him > span { left: 0;	 }

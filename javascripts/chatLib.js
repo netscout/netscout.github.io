@@ -7,17 +7,24 @@ $(function () {
 	var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
     var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
     $("html, body").css({"width":w,"height":h});
-	
+
 	// You can add Users inside JSON users section
 	var _json = {
 		users: [appUi.userId],
 		chats: [{
 			from: '도우미',
 			msg: '채팅이 시작되었습니다.',
-			time: '1533263925814',
+			time: new Date().getTime(),
 			action: ''
 		}]
 	};
+
+	window.addEventListener('beforeunload', function (e) {
+		client.logout();
+		console.log("logged out");
+		// e.preventDefault();
+		// e.returnValue = '';
+	});
 
 	init();
 	function init() {
@@ -97,12 +104,7 @@ $(function () {
 			_json.chats.forEach(function (chat) {
 				var _cl;
 				(chat.from === user) ? _cl = 'you' : _cl = 'him';
-				var dataString = '<li>' +
-					'<div class="msg ' + _cl + '">' +
-					'<span class="partner">' + chat.from + '</span>' +
-					chat.msg +
-					'<span class="time">' + getDateTime(chat.time) + '</span>' +
-					'</div></li>';
+				var dataString = renderMessage(_cl, chat.from, chat.msg, chat.time);
 				$('#viewport #' + userID + ' .chats>ul').append(dataString);
 			});
 		});
@@ -114,14 +116,22 @@ $(function () {
 			var checkID = user.replace(/ /g, "_");
 			var _cl = '';
 			(data.from === user) ? _cl = 'you' : _cl = 'him';
+			const dataString = renderMessage(_cl, data.from, data.msg, data.time);
 			$('#viewport .chatbox#' + checkID + ' .chats ul')
-				.append('<li><div class="msg ' + _cl + '">' +
-					'<span class="partner">' + data.from + '</span>' +
-					data.msg +
-					'<span class="time">' + getDateTime(data.time) + '</span>' +
-					'</div>' +
-					'</li>');
+				.append(dataString);
 		});
+	}
+
+	function renderMessage(_cl, from , msg, time) {
+		var dataString = '<li>' +
+			'<div class="msg ' + _cl + '">' +
+			'<span class="partner">' + from + '</span>' +
+			msg +
+			'</div>' + 
+			'<span class="time">' + getDateTime(time) + '</span>' +
+			'</li>';
+
+		return dataString;
 	}
 
 	function pendingRender(typingUser) {
@@ -144,7 +154,7 @@ $(function () {
 	// HELPER FUNCTION
 	function getDateTime(t) {
 		var month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		var d = new Date(t / 1000),
+		var d = new Date(t),
 			month = (month[d.getMonth()]),
 			day = d.getDate().toString(),
 			hour = d.getHours().toString(),
@@ -152,7 +162,8 @@ $(function () {
 		(day.length < 2) ? day = '0' + day : '';
 		(hour.length < 2) ? hour = '0' + hour : '';
 		(min.length < 2) ? min = '0' + min : '';
-		var res = '' + month + ' ' + day + ' ' + hour + ':' + min;
+		//var res = '' + month + ' ' + day + ' ' + hour + ':' + min;
+		var res = hour + ':' + min;
 		return res;
 	}
 
@@ -241,7 +252,7 @@ $(function () {
 	function loadChatMessages(messages) {
 		for (let i = messages.length - 1; i >= 0; i--) {
 			const message = messages[i];
-			enterNewMassage(message.userId, message.text);
+			enterNewMassage(message.userId, message.text, message.createdAt);
 			// $('#users').append($('<p></p>').text(message.userId));
 			// $('#messages').append($('<p></p>').text(message.text));
 			// $('#timestamps').append($('<p></p>').text(new Date(message.createdAt).toLocaleTimeString()));
