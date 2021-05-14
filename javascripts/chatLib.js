@@ -1,5 +1,5 @@
-const APP_ID = '3ee30362-8459-4ff8-b69c-091be04cfd7a';
-const DEMO_CHANNEL_ID = 'demo channel';
+const APP_ID = '9d3779b5-b6e6-4191-a1da-3de54b6c08d0';
+const DEMO_CHANNEL_ID = 'prototype';
 
 const client = new TalkPlus.Client({ appId: APP_ID });
 
@@ -123,12 +123,16 @@ $(function () {
 	}
 
 	function renderMessage(_cl, from , msg, time) {
+		let timeEl = ''; 
+		if(_cl !== 'you') {
+			timeEl = '<span class="time">' + getDateTime(time) + '</span>';
+		}
 		var dataString = '<li>' +
 			'<div class="msg ' + _cl + '">' +
 			'<span class="partner">' + from + '</span>' +
 			msg +
 			'</div>' + 
-			'<span class="time">' + getDateTime(time) + '</span>' +
+			timeEl +
 			'</li>';
 
 		return dataString;
@@ -154,7 +158,7 @@ $(function () {
 	// HELPER FUNCTION
 	function getDateTime(t) {
 		var month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		var d = new Date(t),
+		var d = new Date(+t),
 			month = (month[d.getMonth()]),
 			day = d.getDate().toString(),
 			hour = d.getHours().toString(),
