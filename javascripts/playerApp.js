@@ -31,9 +31,20 @@ var appUi = new Vue({
         this.url = urlParams.get('url');
         console.log(this.url);
 
-        const randNum = rand_0_100000();
-        this.userId = `${this.userId}${randNum}`;
-        this.userName = `${this.userName}${randNum}`;
+        let userId = localStorage.getItem('userId');
+        let userName = localStorage.getItem('userName');
+        if(!userId) {
+            const randNum = rand_0_100000();
+
+            userId = `${this.userId}${randNum}`;
+            userName = `${this.userName}${randNum}`;
+
+            localStorage.setItem('userId', userId);
+            localStorage.setItem('userName', userName);
+        }
+        
+        this.userId = userId;
+        this.userName = userName;
         console.log(this.userId, this.userName);
     },
     methods: {
