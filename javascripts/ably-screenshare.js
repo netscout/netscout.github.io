@@ -91,7 +91,7 @@ AblyRealtime.subscribe(`call-details/${clientId}`, (call) => {
 });
 
 function initiateCall(client_id) {
-  AdapterJS.WebRTCReady(function (isUsingPlugin) {
+  AdapterJS.webRTCReady(function (isUsingPlugin) {
     // The WebRTC API is ready.
     navigator.mediaDevices
       .getUserMedia(constraints)
@@ -122,7 +122,7 @@ function initiateCall(client_id) {
 
 AblyRealtime.subscribe(`rtc-signal/${clientId}`, (msg) => {
   if (localStream === undefined) {
-    AdapterJS.WebRTCReady(function (isUsingPlugin) {
+    AdapterJS.webRTCReady(function (isUsingPlugin) {
       navigator.mediaDevices
         .getUserMedia(constraints)
         .then(function (stream) {
