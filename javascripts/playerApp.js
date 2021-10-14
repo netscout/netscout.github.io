@@ -11,7 +11,8 @@ var appUi = new Vue({
       sources: [
         {
           src: this.url,
-          type: "application/x-mpegURL",
+          type: "video/youtube",
+          //type: "application/x-mpegURL",
         },
       ],
       //   videoWidth: 1080,
