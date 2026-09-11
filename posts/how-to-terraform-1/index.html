@@ -1,0 +1,582 @@
+<!doctype html><html lang=ko><head><title>How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Terraform은 DevOps의 필수 구성 요소로 자리 잡고 있습니다. Terraform을 통해 서비스를 지탱하는 인프라에 대한 정의, 배포, 업데이트 그리고 삭제를 코드로 정의할 수 있으며 이러한 개념을 IaC(infrastructure as code)라고 합니다."><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/how-to-terraform-1/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남"><meta property="og:description" content="Terraform은 DevOps의 필수 구성 요소로 자리 잡고 있습니다. Terraform을 통해 서비스를 지탱하는 인프라에 대한 정의, 배포, 업데이트 그리고 삭제를 코드로 정의할 수 있으며 이러한 개념을 IaC(infrastructure as code)라고 합니다."><meta property="og:url" content="https://netscout.github.io/posts/how-to-terraform-1/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2023-03-15 09:00:00 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/how-to-terraform-1/>How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남</a></h1><div class=post-meta><time class=post-date>2023-03-15</time>
+<span class=post-reading-time>18 분 (3760 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/Terraform/>Terraform</a>&nbsp;
+#<a href=https://netscout.github.io/tags/IaC/>IaC</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#terraform이란>Terraform이란?</a></li><li><a href=#terraform-설치하기>Terraform 설치하기</a></li><li><a href=#aws-iam-사용자-생성하기>AWS IAM 사용자 생성하기</a><ul><li><a href=#iam-사용자-생성하기>IAM 사용자 생성하기</a></li></ul></li><li><a href=#terraform-계정-정보-설정하기>Terraform 계정 정보 설정하기</a></li><li><a href=#첫-terraform-코드-작성하기>첫 Terraform 코드 작성하기</a></li><li><a href=#terraform-초기화-및-실행-계획-확인하기>Terraform 초기화 및 실행 계획 확인하기</a></li><li><a href=#terraform-코드-실행하기>Terraform 코드 실행하기</a></li><li><a href=#리소스-삭제하기>리소스 삭제하기</a></li><li><a href=#iam-권한-제한하기>IAM 권한 제한하기</a><ul><li><a href=#iamlive-설정하기>iamlive 설정하기</a></li><li><a href=#iamlive을-통해-권한-확인하기>iamlive을 통해 권한 확인하기</a></li></ul></li><li><a href=#참고자료>참고자료</a></li></ul></nav></div><div class=post-content><div><h2 id=terraform이란>Terraform이란?<a href=#terraform이란 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Terraform은 DevOps의 필수 구성 요소로 자리 잡고 있습니다. Terraform을 통해 서비스를 지탱하는 인프라에 대한 정의, 배포, 업데이트 그리고 삭제를 코드로 정의할 수 있으며 이러한 개념을 IaC(infrastructure as code)라고 합니다.</p><blockquote><p>DevOps는 소프트웨어 배포를 빠르고 효율적으로 할 수 있게 해주는 프로세스, 아이디어, 테크닉을 말한다.</p></blockquote><p>그런데, 인프라를 코드로 작성하면 무슨 장점이 있는 걸까요?</p><ul><li><strong>자동화</strong>: 인프라를 코드로 작성할 수 있다면 자동화할 수 있고, 필요할 때 언제든 즉시 실행 가능합니다.</li><li><strong>실수 방지</strong>: 자동화를 통해 수작업에서 발생하는 오류를 줄일 수 있고, 몇 번이고 반복해서 실행해도 안심할 수 있죠.</li><li><strong>문서화</strong>: 또한 코드는 인프라에 대한 문서로 볼 수도 있습니다. 누군가의 머리 속에만 존재하지 않고, 누구나 볼 수 있는 코드에 인프라의 정보가 담기는 셈이죠.</li><li><strong>버전 관리</strong>: 그리고 매우 큰 장점이 또 있는데요, 마치 소스 코드를 git으로 버전 관리 하듯이 인프라의 구성 역시 코드로써 버전 관리 할 수 있습니다. 뭔가 잘 못 됐을 때, 빠르게 커밋 로그를 통해 변경점을 찾을 수 있고 이전 버전으로 돌아갈 수도 있죠! 😊</li></ul><p>그런데 Terraform으로 관리를 시작하면 누구나 거치는 어려움이 있습니다. 그건 바로 모든 리소스를 Terraform을 통해서만 관리해야 한다는 점입니다. Terraform으로 리소스를 만들어 놓고 나서, 나도 모르게 습관적으로 포털에 들어가서 마우스를 클릭클릭해서 설정을 변경하고 싶은 유혹에 빠집니다. 수작업을 추가하는 순간 Terraform의 상태 관리에서 벗어나기 시작하므로 피치 못할 사정이 아니면 Terraform을 통해서 상태를 변경해야 합니다.</p><blockquote><p>오래된 습관은 아주 무섭습니다. 문제를 해결하려다 보면 저도 모르게 포털에 들어가서 설정을 바꾸곤 합니다&mldr;😅</p></blockquote><h2 id=terraform-설치하기>Terraform 설치하기<a href=#terraform-설치하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Terraform을 설치하는 방법은 여려가지가 있지만, 저는 <code>tfenv</code>를 추천합니다. <code>tfenv</code>는 Terraform의 버전을 관리해주는 도구로, 여러 버전의 Terraform을 설치하고 각각의 버전을 쉽게 전환할 수 있습니다. 예를 들어 1.4.0 버전의 Terraform을 사용하던 중에 1.5.0이 출시되었다고 해보죠. 1.5.0을 사용해보다가 뭔가 문제가 있어서 다시 1.4.0으로 돌아오고 싶을 수도 있습니다. 그런 경우에 1.4.0을 삭제하고 1.5.0을 설치하고&mldr; 다시 1.5.0을 삭제하고 1.4.0을 설치하고&mldr; 하는 번거로운 작업을 해야 하지만, <code>tfenv</code>를 사용하면 여러 버전을 동시에 설치하고 각각의 버전을 쉽게 전환할 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># tfenv 설치</span>
+</span></span><span class=line><span class=cl>&gt; brew install tfenv
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 설치 가능한 버전 목록 확인하기</span>
+</span></span><span class=line><span class=cl>&gt; tfenv list-remote
+</span></span><span class=line><span class=cl>1.7.0-alpha20231025
+</span></span><span class=line><span class=cl>1.6.2
+</span></span><span class=line><span class=cl>1.6.1
+</span></span><span class=line><span class=cl>1.6.0
+</span></span><span class=line><span class=cl>1.6.0-rc1
+</span></span><span class=line><span class=cl>1.6.0-beta3
+</span></span><span class=line><span class=cl>1.6.0-beta2
+</span></span><span class=line><span class=cl>1.6.0-beta1
+</span></span><span class=line><span class=cl>1.6.0-alpha20230816
+</span></span><span class=line><span class=cl>1.6.0-alpha20230802
+</span></span><span class=line><span class=cl>1.6.0-alpha20230719
+</span></span><span class=line><span class=cl>1.5.7
+</span></span><span class=line><span class=cl>1.5.6
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 현재 설치된 버전 확인(terraform을 alias인 tf로 등록해서 사용하고 있습니다.)</span>
+</span></span><span class=line><span class=cl>&gt; tf version
+</span></span><span class=line><span class=cl>Terraform v1.5.3
+</span></span><span class=line><span class=cl>on darwin_arm64
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Your version of Terraform is out of date! The latest version
+</span></span><span class=line><span class=cl>is 1.6.2. You can update by downloading from https://www.terraform.io/downloads.html
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 1.6.2 버전 설치하기</span>
+</span></span><span class=line><span class=cl>&gt; tfenv install 1.6.2
+</span></span><span class=line><span class=cl>Installing Terraform v1.6.2
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Installation of terraform v1.6.2 successful. To make this your default version, run <span class=s1>&#39;tfenv use 1.6.2&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 1.6.2 버전으로 전환하기</span>
+</span></span><span class=line><span class=cl>&gt; tfenv use 1.6.2
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 현재 설치된 버전 확인하기</span>
+</span></span><span class=line><span class=cl>&gt; tf version
+</span></span><span class=line><span class=cl>Terraform v1.6.2
+</span></span><span class=line><span class=cl>on darwin_arm64
+</span></span></code></pre></div><blockquote><p><code>terraform</code>이라고 매번 입력하는게 어려우니 .zshrc나 .bashrc에 다음과 같이 alias 설정을 해서 <code>tf</code>로 사용하는 것도 방법입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>alias tf=terraform
+</span></span></code></pre></div></blockquote><blockquote><p>terraform 1.0 부터는 <a href=https://developer.hashicorp.com/terraform/language/v1-compatibility-promises>v1-compatibility-promises</a>가 적용되는데요, 1.0 부터 향후 출시될 1.x 버전까지는 코드 변경 없이 동작한다는 걸 보장합니다. 따라서 1.x 버전에서는 최신 버전을 사용하지 않을 이유가 없을지도&mldr;?</p></blockquote><h2 id=aws-iam-사용자-생성하기>AWS IAM 사용자 생성하기<a href=#aws-iam-사용자-생성하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Terraform이 AWS의 리소스를 관리하기 위해서는 Terraform이 사용할 수 있는 AWS IAM 사용자가 필요합니다. AWS IAM 사용자를 생성하고 Terraform이 사용할 수 있는 권한을 부여해보겠습니다.</p><h3 id=iam-사용자-생성하기>IAM 사용자 생성하기<a href=#iam-사용자-생성하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>먼저 AWS 계정이 필요하겠죠? 계정을 생성하고 로그인하면 AWS 콘솔에 접속할 수 있습니다. AWS 콘솔에서 IAM을 검색하고 IAM을 선택합니다.</p><p align=center><img src=./01.png></p><p>좌측의 <code>엑세스 관리</code> > <code>사용자</code> > <code>사용자 생성</code>을 클릭합니다. 이어지는 단계에서 사용자 이름을 입력하고 다음으로 이동합니다.</p><p align=center><img src=./02.png></p><p>우선 <code>사용자 그룹 생성</code>을 눌러 사용자 그룹의 이름을 설정하고 <code>권한 정책</code>에서는 일단 모든 AWS 리소스에 대한 권한을 가지는 <code>AdministratorAccess</code>를 선택하고 <code>사용자 그룹 생성</code>을 누릅니다.</p><p align=center><img src=./03.png></p><blockquote><p>전체 권한이 부여된 계정이 잘못 사용되면 큰 문제를 일으킬 수 있으므로 필요한 권한만을 부여하는 게 좋습니다. 필요한 만큼 권한을 부여하는 방법에 대해서는 추후 다시 설명하겠습니다.</p></blockquote><p>사용자 그룹이 생성되면 다음과 같이 생성된 그룹을 선택하고 <code>다음</code>을 누릅니다.</p><p align=center><img src=./04.png></p><p>그리고 마지막으로 <code>검토 및 생성</code>단계에서 사용자 정보를 확인하고 <code>사용자 생성</code>을 누릅니다. 이제 사용자 목록에서 생성된 사용자를 확인할 수 있습니다.</p><p align=center><img src=./05.png></p><p>사용자 이름을 눌러 세부 정보 페이지로 이동하고 우측 상단의 <code>액세스 키 만들기</code>를 클릭하고, 목록에서 <code>Command Line Interface(CLI)</code>를 선택하고 <code>다음</code>을 누릅니다.</p><p align=center><img src=./06.png></p><p><code>설명 태그 설정</code>에서 태그 이름을 작성(ex: Terraform-Access)하고 <code>액세스 키 만들기</code>를 누릅니다. 이제 액세스 키 ID와 비밀 액세스 키를 확인할 수 있습니다.</p><p align=center><img src=./07.png></p><p>비밀 액세스 키를 잃어버리면 다시 발급해야 하므로 잘 보관해두시기 바랍니다.</p><h2 id=terraform-계정-정보-설정하기>Terraform 계정 정보 설정하기<a href=#terraform-계정-정보-설정하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>앞서 Terraform이 사용할 계정을 생성하고 해당 계정의 액세스 키도 생성을 마쳤습니다. 이제 Terraform이 해당 계정을 사용할 수 있도록 환경 변수에 계정 정보를 설정해보겠습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># zsh을 사용하는 경우</span>
+</span></span><span class=line><span class=cl>&gt; vi ~/.zshrc
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># bash를 사용하는 경우</span>
+</span></span><span class=line><span class=cl>&gt; vi ~/.bashrc
+</span></span></code></pre></div><p>그리고 다음과 같이 환경 변수를 설정합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>export</span> <span class=nv>AWS_ACCESS_KEY_ID</span><span class=o>={</span>액세스 ID<span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>AWS_SECRET_ACCESS_KEY</span><span class=o>={</span>비밀 액세스 키<span class=o>}</span>
+</span></span></code></pre></div><blockquote><p>참고로 vi로 파일을 열고 <code>i</code>를 누르면 편집 모드로 전환되고, <code>esc</code>를 누르면 편집 모드에서 빠져나올 수 있습니다. <code>:wq</code>를 입력하면 저장하고 빠져나올 수 있습니다.
+그리고 환경 변수를 설정한 후에는 <code>source ~/.zshrc</code> 또는 <code>source ~/.bashrc</code>를 입력해서 환경 변수를 적용할 수 있습니다.</p></blockquote><p>다음 명령어를 통해서 환경 변수가 잘 설정되었는지 확인할 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>echo</span> <span class=nv>$AWS_ACCESS_KEY_ID</span>
+</span></span><span class=line><span class=cl><span class=o>{</span>액세스 ID<span class=o>}</span>
+</span></span></code></pre></div><h2 id=첫-terraform-코드-작성하기>첫 Terraform 코드 작성하기<a href=#첫-terraform-코드-작성하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>이제 Terraform을 사용할 준비가 끝났습니다. 터미널을 열고 다음과 같이 작업할 공간을 생성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>~/src
+</span></span><span class=line><span class=cl>&gt; mkdir how-to-terraform
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>~/src
+</span></span><span class=line><span class=cl>&gt; <span class=nb>cd</span> how-to-terraform
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>~/src/how-to-terraform
+</span></span><span class=line><span class=cl>&gt; code .
+</span></span></code></pre></div><blockquote><p>이 시리즈에서는 Visual Studio Code를 사용합니다.</p></blockquote><p>에디터에서 <code>chapter01</code> 폴더를 생성하고 폴더 안에 <code>main.tf</code> 파일을 생성합니다. 그리고 다음과 같이 코드를 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 최초 인스턴스 생성 시에만 실행
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>user_data</span> <span class=o>=</span> <span class=o>&lt;&lt;-EOF</span><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>              #!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=s>              echo &#34;Hello, World&#34; &gt; index.html
+</span></span></span><span class=line><span class=cl><span class=s>              nohup busybox httpd -f -p 8080 &amp;
+</span></span></span><span class=line><span class=cl><span class=s>              </span><span class=o>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>tags</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Name</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>AWS에서 제공하는 프로바이더를 선언하였고, AWS의 ap-northeast-2(서울)리전을 대상으로 Terraform 코드를 실행하도록 설정하였습니다. 그리고 Ubuntu 20.04로 동작하는 EC2 인스턴스를 하나 생성하였습니다. 그리고 최초 인스턴스가 생성 될 때 <code>user_data</code>에 지정한 스크립트가 실행되면서 웹에서 접속하면 <code>Hello, World</code>를 출력하는 웹 서버가 실행되도록 설정하였습니다.</p><h2 id=terraform-초기화-및-실행-계획-확인하기>Terraform 초기화 및 실행 계획 확인하기<a href=#terraform-초기화-및-실행-계획-확인하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p><code>main.tf</code> 파일에 우클릭하고 <code>통합 터미널에서 열기</code>를 선택하여 <code>main.tf</code>파일이 위치한 경로에서 터미널을 실행합니다.</p><p align=center><img src=./08.png></p><p>그리고 다음과 같이 Terraform을 초기화합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Initializing the backend...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Initializing provider plugins...
+</span></span><span class=line><span class=cl>- Finding latest version of hashicorp/aws...
+</span></span><span class=line><span class=cl>- Installing hashicorp/aws v5.23.1...
+</span></span><span class=line><span class=cl>- Installed hashicorp/aws v5.23.1 <span class=o>(</span>signed by HashiCorp<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform has created a lock file .terraform.lock.hcl to record the provider
+</span></span><span class=line><span class=cl>selections it made above. Include this file in your version control repository
+</span></span><span class=line><span class=cl>so that Terraform can guarantee to make the same selections by default when
+</span></span><span class=line><span class=cl>you run <span class=s2>&#34;terraform init&#34;</span> in the future.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform has been successfully initialized!
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>You may now begin working with Terraform. Try running <span class=s2>&#34;terraform plan&#34;</span> to see
+</span></span><span class=line><span class=cl>any changes that are required <span class=k>for</span> your infrastructure. All Terraform commands
+</span></span><span class=line><span class=cl>should now work.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>If you ever <span class=nb>set</span> or change modules or backend configuration <span class=k>for</span> Terraform,
+</span></span><span class=line><span class=cl>rerun this <span class=nb>command</span> to reinitialize your working directory. If you forget, other
+</span></span><span class=line><span class=cl>commands will detect it and remind you to <span class=k>do</span> so <span class=k>if</span> necessary.
+</span></span></code></pre></div><p>AWS 프로바이더 5.23.1 버전이 설치되었고, Terraform이 정상적으로 초기화 되었음을 알 수 있습니다. 그렇다면, 이제 Terraform 코드로 인프라가 어떻게 구성될지 미리 살펴볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>Terraform used the selected providers to generate the following execution plan. Resource
+</span></span><span class=line><span class=cl>actions are indicated with the following symbols:
+</span></span><span class=line><span class=cl>  + create
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform will perform the following actions:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_instance.example will be created</span>
+</span></span><span class=line><span class=cl>  + resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ami</span>                                  <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>arn</span>                                  <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>associate_public_ip_address</span>          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>availability_zone</span>                    <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>cpu_core_count</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>cpu_threads_per_core</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>disable_api_stop</span>                     <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>disable_api_termination</span>              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ebs_optimized</span>                        <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>get_password_data</span>                    <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>host_id</span>                              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>host_resource_group_arn</span>              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>iam_instance_profile</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>id</span>                                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_initiated_shutdown_behavior</span> <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_lifecycle</span>                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_state</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_type</span>                        <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ipv6_address_count</span>                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ipv6_addresses</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>key_name</span>                             <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>monitoring</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>outpost_arn</span>                          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>password_data</span>                        <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>placement_group</span>                      <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>placement_partition_number</span>           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>primary_network_interface_id</span>         <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>private_dns</span>                          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>private_ip</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>public_dns</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>public_ip</span>                            <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>secondary_private_ips</span>                <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>security_groups</span>                      <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>source_dest_check</span>                    <span class=o>=</span> <span class=nb>true</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>spot_instance_request_id</span>             <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>subnet_id</span>                            <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tags</span>                                 <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          + <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tags_all</span>                             <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          + <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tenancy</span>                              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data</span>                            <span class=o>=</span> <span class=s2>&#34;c765373c563b260626d113c4a56a46e8a8c5ca33&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data_base64</span>                     <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data_replace_on_change</span>          <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>vpc_security_group_ids</span>               <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>──────────────────────────────────────────────────────────────────────────────────────────────
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Note: You didn<span class=s1>&#39;t use the -out option to save this plan, so Terraform can&#39;</span>t guarantee to take
+</span></span><span class=line><span class=cl>exactly these actions <span class=k>if</span> you run <span class=s2>&#34;terraform apply&#34;</span> now.
+</span></span></code></pre></div><p><code>tf plan</code>명령을 실행하면 Terraform이 현재 인프라의 상태와 코드에 정의된 인프라를 비교해서 어떻게 인프라에 반영할 것인지 미리 확인해볼 수 있습니다. 추가될 요소는 앞에 <code>+</code>가 붙고 삭제된 요소는 앞에 <code>-</code>가 붙습니다. 그리고 코드에서 지정해준 인스턴스의 ami, instance_type, user_data 등을 제외하면 모두 <code>known after apply</code>라고 표시되어 있습니다. 이런 정보는 인스턴스가 실제로 생성되고 나서 확인할 수 있다는 의미입니다.</p><p>이렇게 코드가 반영되면 어떻게 인프라가 변경될지 미리 상세하게 확인해볼 수 있구요, 맨 마지막 줄에는 요약 정보가 표시됩니다. 코드의 실행 게획을 미리 짜본 결과 1개의 리소스가 추가되고, 변경될 리소스는 0개, 삭제될 리소스 역시 0개라고 합니다. Terraform 코드를 처음 실행하는 거니까 당연한 결과겠죠?</p><h2 id=terraform-코드-실행하기>Terraform 코드 실행하기<a href=#terraform-코드-실행하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>실행 계획을 확인해보고 문제가 없으면 코드를 실행해서 인프라를 변경할 수 있습니다. 다음과 같이 <code>tf apply</code>를 입력하면 코드가 실행되고 인프라가 변경됩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>Terraform used the selected providers to generate the following execution plan. Resource
+</span></span><span class=line><span class=cl>actions are indicated with the following symbols:
+</span></span><span class=line><span class=cl>  + create
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform will perform the following actions:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_instance.example will be created</span>
+</span></span><span class=line><span class=cl>  + resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ami</span>                                  <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>arn</span>                                  <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>associate_public_ip_address</span>          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>availability_zone</span>                    <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>cpu_core_count</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>cpu_threads_per_core</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>disable_api_stop</span>                     <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>disable_api_termination</span>              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ebs_optimized</span>                        <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>get_password_data</span>                    <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>host_id</span>                              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>host_resource_group_arn</span>              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>iam_instance_profile</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>id</span>                                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_initiated_shutdown_behavior</span> <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_lifecycle</span>                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_state</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>instance_type</span>                        <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ipv6_address_count</span>                   <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ipv6_addresses</span>                       <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>key_name</span>                             <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>monitoring</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>outpost_arn</span>                          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>password_data</span>                        <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>placement_group</span>                      <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>placement_partition_number</span>           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>primary_network_interface_id</span>         <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>private_dns</span>                          <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>private_ip</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>public_dns</span>                           <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>public_ip</span>                            <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>secondary_private_ips</span>                <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>security_groups</span>                      <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>source_dest_check</span>                    <span class=o>=</span> <span class=nb>true</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>spot_instance_request_id</span>             <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>subnet_id</span>                            <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tags</span>                                 <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          + <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tags_all</span>                             <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          + <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tenancy</span>                              <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data</span>                            <span class=o>=</span> <span class=s2>&#34;c765373c563b260626d113c4a56a46e8a8c5ca33&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data_base64</span>                     <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>user_data_replace_on_change</span>          <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>vpc_security_group_ids</span>               <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Do you want to perform these actions?
+</span></span><span class=line><span class=cl>  Terraform will perform the actions described above.
+</span></span><span class=line><span class=cl>  Only <span class=s1>&#39;yes&#39;</span> will be accepted to approve.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  Enter a value:
+</span></span></code></pre></div><p>코드를 실행하면 앞서 확인한 것 처럼 실행 계획을 한 번 더 확인합니다. 그리고 정말 이 코드를 실행하려면 <code>yes</code>를 입력하라고 합니다. <code>yes</code>이외의 값을 입력하면 코드 실행이 취소됩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>aws_instance.example: Creating...
+</span></span><span class=line><span class=cl>aws_instance.example: Still creating... <span class=o>[</span>10s elapsed<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Still creating... <span class=o>[</span>20s elapsed<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Creation <span class=nb>complete</span> after 22s <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Apply complete! Resources: <span class=m>1</span> added, <span class=m>0</span> changed, <span class=m>0</span> destroyed.
+</span></span></code></pre></div><blockquote><p>참고로 실행 계획을 생성할 때, 실행 계획을 파일로 출력하여 코드를 실행할 때 실행 계획대로 바로 실행되도록 할 수도 있습니다. <code>tf plan -out plan.out</code>을 입력하면 실행 계획이 <code>plan.out</code> 파일로 저장되고, <code>tf apply plan.out</code>을 입력하면 <code>plan.out</code> 파일에 저장된 실행 계획대로 코드가 실행됩니다.</p></blockquote><p>코드 실행 결과로 1개의 리소스가 생성되었습니다. 포털에서 EC2로 검색하여 EC2 포털로 들어가면 <code>인스턴스(실행 중)</code> 항목이 <code>1</code>인 걸 확인할 수 있으며, 해당 항목을 누르면 실행 중인 EC2를 확인할 수 있습니다.</p><p align=center><img src=./09.png></p><p>인스턴스 ID를 눌러 상세 페이지로 들어가면 우측 상단에서 <code>퍼블릭 IPv4 주소</code>, <code>퍼블릭 IPv4 DNS</code> 등을 확인할 수 있지만, 해당 주소로 접속은 불가합니다.</p><p><code>main.tf</code> 코드에 다음 항목을 추가해서 외부에서의 접속을 허용합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 외부에서 접속을 허용하기 위한 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>vpc_security_group_ids</span> <span class=o>=</span> <span class=p>[</span><span class=nx>aws_security_group</span><span class=p>.</span><span class=nx>example</span><span class=p>.</span><span class=nx>id</span><span class=p>]</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 최초 인스턴스 생성 시에만 실행
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>user_data</span> <span class=o>=</span> <span class=o>&lt;&lt;-EOF</span><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>              #!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=s>              echo &#34;Hello, World&#34; &gt; index.html
+</span></span></span><span class=line><span class=cl><span class=s>              nohup busybox httpd -f -p 8080 &amp;
+</span></span></span><span class=line><span class=cl><span class=s>              </span><span class=o>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>tags</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Name</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>// 인바운드 규칙을 설정하기 위한 보안 그룹
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_security_group&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>name</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 인바운드 규칙
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ingress</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>from_port</span>   <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>    <span class=nx>to_port</span>     <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>    <span class=nx>protocol</span>    <span class=o>=</span> <span class=s2>&#34;tcp&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>cidr_blocks</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;0.0.0.0/0&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>다시 실행 계획을 확인해봅니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>aws_instance.example: Refreshing state... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform used the selected providers to generate the following execution plan. Resource
+</span></span><span class=line><span class=cl>actions are indicated with the following symbols:
+</span></span><span class=line><span class=cl>  + create
+</span></span><span class=line><span class=cl>  ~ update in-place
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform will perform the following actions:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_instance.example will be updated in-place</span>
+</span></span><span class=line><span class=cl>  ~ resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>        <span class=nv>id</span>                                   <span class=o>=</span> <span class=s2>&#34;i-00229af6743e0ba4b&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=nv>tags</span>                                 <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>            <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>      ~ <span class=nv>vpc_security_group_ids</span>               <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>          - <span class=s2>&#34;sg-0908fdbf1d8c6156e&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=o>]</span> -&gt; <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>        <span class=c1># (31 unchanged attributes hidden)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># (8 unchanged blocks hidden)</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_security_group.example will be created</span>
+</span></span><span class=line><span class=cl>  + resource <span class=s2>&#34;aws_security_group&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>arn</span>                    <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>description</span>            <span class=o>=</span> <span class=s2>&#34;Managed by Terraform&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>egress</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>id</span>                     <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>ingress</span>                <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>          + <span class=o>{</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>cidr_blocks</span>      <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>                  + <span class=s2>&#34;0.0.0.0/0&#34;</span>,
+</span></span><span class=line><span class=cl>                <span class=o>]</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>description</span>      <span class=o>=</span> <span class=s2>&#34;&#34;</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>from_port</span>        <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>ipv6_cidr_blocks</span> <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>prefix_list_ids</span>  <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>protocol</span>         <span class=o>=</span> <span class=s2>&#34;tcp&#34;</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>security_groups</span>  <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>self</span>             <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>              + <span class=nv>to_port</span>          <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=o>]</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>name</span>                   <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>name_prefix</span>            <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>owner_id</span>               <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>revoke_rules_on_delete</span> <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>tags_all</span>               <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>      + <span class=nv>vpc_id</span>                 <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>1</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>──────────────────────────────────────────────────────────────────────────────────────────────
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Note: You didn<span class=s1>&#39;t use the -out option to save this plan, so Terraform can&#39;</span>t guarantee to take
+</span></span><span class=line><span class=cl>exactly these actions <span class=k>if</span> you run <span class=s2>&#34;terraform apply&#34;</span> now.
+</span></span></code></pre></div><p>새로운 리소스(시큐리티 그룹)이 추가되고 시큐리티 그룹을 통해 외부에서의 접속을 허용하도록 EC2 인스턴스가 변경되는 것을 확인할 수 있습니다. 이제 코드를 실행합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>aws_security_group.example: Creating...
+</span></span><span class=line><span class=cl>aws_security_group.example: Creation <span class=nb>complete</span> after 1s <span class=o>[</span><span class=nv>id</span><span class=o>=</span>sg-057069d47b3e7f650<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Modifying... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Modifications <span class=nb>complete</span> after 2s <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Apply complete! Resources: <span class=m>1</span> added, <span class=m>1</span> changed, <span class=m>0</span> destroyed.
+</span></span></code></pre></div><p>이제 다시 <code>퍼블릭 IPv4 주소</code>, <code>퍼블릭 IPv4 DNS</code>를 통해 8080번 포트로 접속하면 <code>Hello, World</code>를 확인할 수 있습니다.</p><p align=center><img src=./10.png></p><h2 id=리소스-삭제하기>리소스 삭제하기<a href=#리소스-삭제하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Terraform 코드로 생성된 리소스는 <code>destroy</code> 명령어로 일괄 삭제할 수 있다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf destroy
+</span></span><span class=line><span class=cl>aws_security_group.example: Refreshing state... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>sg-057069d47b3e7f650<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Refreshing state... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform used the selected providers to generate the following execution plan. Resource
+</span></span><span class=line><span class=cl>actions are indicated with the following symbols:
+</span></span><span class=line><span class=cl>  - destroy
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Terraform will perform the following actions:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_instance.example will be destroyed</span>
+</span></span><span class=line><span class=cl>  - resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>      - <span class=nv>ami</span>                                  <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>arn</span>                                  <span class=o>=</span> <span class=s2>&#34;arn:aws:ec2:ap-northeast-2:246181472423:instance/i-00229af6743e0ba4b&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>associate_public_ip_address</span>          <span class=o>=</span> <span class=nb>true</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>availability_zone</span>                    <span class=o>=</span> <span class=s2>&#34;ap-northeast-2c&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>cpu_core_count</span>                       <span class=o>=</span> <span class=m>1</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>cpu_threads_per_core</span>                 <span class=o>=</span> <span class=m>1</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>disable_api_stop</span>                     <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>disable_api_termination</span>              <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>ebs_optimized</span>                        <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>get_password_data</span>                    <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>hibernation</span>                          <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>id</span>                                   <span class=o>=</span> <span class=s2>&#34;i-00229af6743e0ba4b&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>instance_initiated_shutdown_behavior</span> <span class=o>=</span> <span class=s2>&#34;stop&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>instance_state</span>                       <span class=o>=</span> <span class=s2>&#34;running&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>instance_type</span>                        <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>ipv6_address_count</span>                   <span class=o>=</span> <span class=m>0</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>ipv6_addresses</span>                       <span class=o>=</span> <span class=o>[]</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>monitoring</span>                           <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>placement_partition_number</span>           <span class=o>=</span> <span class=m>0</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>primary_network_interface_id</span>         <span class=o>=</span> <span class=s2>&#34;eni-06474393b32e2d8fc&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>private_dns</span>                          <span class=o>=</span> <span class=s2>&#34;ip-172-31-45-210.ap-northeast-2.compute.internal&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>private_ip</span>                           <span class=o>=</span> <span class=s2>&#34;172.31.45.210&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>public_dns</span>                           <span class=o>=</span> <span class=s2>&#34;ec2-3-39-10-27.ap-northeast-2.compute.amazonaws.com&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>public_ip</span>                            <span class=o>=</span> <span class=s2>&#34;3.39.10.27&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>secondary_private_ips</span>                <span class=o>=</span> <span class=o>[]</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>security_groups</span>                      <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>          - <span class=s2>&#34;terraform-example&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=o>]</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>source_dest_check</span>                    <span class=o>=</span> <span class=nb>true</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>subnet_id</span>                            <span class=o>=</span> <span class=s2>&#34;subnet-03d036291a1b8a65a&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>tags</span>                                 <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>tags_all</span>                             <span class=o>=</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=s2>&#34;Name&#34;</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=o>}</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>tenancy</span>                              <span class=o>=</span> <span class=s2>&#34;default&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>user_data</span>                            <span class=o>=</span> <span class=s2>&#34;c765373c563b260626d113c4a56a46e8a8c5ca33&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>user_data_replace_on_change</span>          <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>vpc_security_group_ids</span>               <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>          - <span class=s2>&#34;sg-057069d47b3e7f650&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=o>]</span> -&gt; null
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - capacity_reservation_specification <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>capacity_reservation_preference</span> <span class=o>=</span> <span class=s2>&#34;open&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - cpu_options <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>core_count</span>       <span class=o>=</span> <span class=m>1</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>threads_per_core</span> <span class=o>=</span> <span class=m>1</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - credit_specification <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>cpu_credits</span> <span class=o>=</span> <span class=s2>&#34;standard&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - enclave_options <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>enabled</span> <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - maintenance_options <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>auto_recovery</span> <span class=o>=</span> <span class=s2>&#34;default&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - metadata_options <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>http_endpoint</span>               <span class=o>=</span> <span class=s2>&#34;enabled&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>http_protocol_ipv6</span>          <span class=o>=</span> <span class=s2>&#34;disabled&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>http_put_response_hop_limit</span> <span class=o>=</span> <span class=m>1</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>http_tokens</span>                 <span class=o>=</span> <span class=s2>&#34;optional&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>instance_metadata_tags</span>      <span class=o>=</span> <span class=s2>&#34;disabled&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - private_dns_name_options <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>enable_resource_name_dns_a_record</span>    <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>enable_resource_name_dns_aaaa_record</span> <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>hostname_type</span>                        <span class=o>=</span> <span class=s2>&#34;ip-name&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      - root_block_device <span class=o>{</span>
+</span></span><span class=line><span class=cl>          - <span class=nv>delete_on_termination</span> <span class=o>=</span> <span class=nb>true</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>device_name</span>           <span class=o>=</span> <span class=s2>&#34;/dev/sda1&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>encrypted</span>             <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>iops</span>                  <span class=o>=</span> <span class=m>100</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>tags</span>                  <span class=o>=</span> <span class=o>{}</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>throughput</span>            <span class=o>=</span> <span class=m>0</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>volume_id</span>             <span class=o>=</span> <span class=s2>&#34;vol-0f74f2dbc1d7880c1&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>volume_size</span>           <span class=o>=</span> <span class=m>8</span> -&gt; null
+</span></span><span class=line><span class=cl>          - <span class=nv>volume_type</span>           <span class=o>=</span> <span class=s2>&#34;gp2&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>        <span class=o>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1># aws_security_group.example will be destroyed</span>
+</span></span><span class=line><span class=cl>  - resource <span class=s2>&#34;aws_security_group&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span><span class=line><span class=cl>      - <span class=nv>arn</span>                    <span class=o>=</span> <span class=s2>&#34;arn:aws:ec2:ap-northeast-2:246181472423:security-group/sg-057069d47b3e7f650&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>description</span>            <span class=o>=</span> <span class=s2>&#34;Managed by Terraform&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>egress</span>                 <span class=o>=</span> <span class=o>[]</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>id</span>                     <span class=o>=</span> <span class=s2>&#34;sg-057069d47b3e7f650&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>ingress</span>                <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>          - <span class=o>{</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>cidr_blocks</span>      <span class=o>=</span> <span class=o>[</span>
+</span></span><span class=line><span class=cl>                  - <span class=s2>&#34;0.0.0.0/0&#34;</span>,
+</span></span><span class=line><span class=cl>                <span class=o>]</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>description</span>      <span class=o>=</span> <span class=s2>&#34;&#34;</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>from_port</span>        <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>ipv6_cidr_blocks</span> <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>prefix_list_ids</span>  <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>protocol</span>         <span class=o>=</span> <span class=s2>&#34;tcp&#34;</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>security_groups</span>  <span class=o>=</span> <span class=o>[]</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>self</span>             <span class=o>=</span> <span class=nb>false</span>
+</span></span><span class=line><span class=cl>              - <span class=nv>to_port</span>          <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>            <span class=o>}</span>,
+</span></span><span class=line><span class=cl>        <span class=o>]</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>name</span>                   <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>owner_id</span>               <span class=o>=</span> <span class=s2>&#34;246181472423&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>revoke_rules_on_delete</span> <span class=o>=</span> <span class=nb>false</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>tags</span>                   <span class=o>=</span> <span class=o>{}</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>tags_all</span>               <span class=o>=</span> <span class=o>{}</span> -&gt; null
+</span></span><span class=line><span class=cl>      - <span class=nv>vpc_id</span>                 <span class=o>=</span> <span class=s2>&#34;vpc-089687c07f7572271&#34;</span> -&gt; null
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Plan: <span class=m>0</span> to add, <span class=m>0</span> to change, <span class=m>2</span> to destroy.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Do you really want to destroy all resources?
+</span></span><span class=line><span class=cl>  Terraform will destroy all your managed infrastructure, as shown above.
+</span></span><span class=line><span class=cl>  There is no undo. Only <span class=s1>&#39;yes&#39;</span> will be accepted to confirm.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  Enter a value: yes
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>aws_instance.example: Destroying... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Still destroying... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b, 10s elapsed<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Still destroying... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00229af6743e0ba4b, 20s elapsed<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_instance.example: Destruction <span class=nb>complete</span> after 30s
+</span></span><span class=line><span class=cl>aws_security_group.example: Destroying... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>sg-057069d47b3e7f650<span class=o>]</span>
+</span></span><span class=line><span class=cl>aws_security_group.example: Destruction <span class=nb>complete</span> after 0s
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Destroy complete! Resources: <span class=m>2</span> destroyed.
+</span></span></code></pre></div><blockquote><p>만약 특정한 리소스만 삭제하고 싶다면 <code>tf destroy -target {리소스 타입}.{리소스 이름}</code>을 입력하면 됩니다.
+리소스 이름을 어떻게 확인하냐구요? 좋은 질문입니다! 리소스 이름은 <code>tf state list</code>를 입력하면 확인할 수 있습니다!</p></blockquote><h2 id=iam-권한-제한하기>IAM 권한 제한하기<a href=#iam-권한-제한하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>IAM에 딱 필요한 권한 허용하려면, 우선 어떤 권한이 필요한지 알아야 합니다. 그런데&mldr;. 그걸 어떻게 알 수 있을까요??</p><p>여기서 <a href=https://github.com/iann0036/iamlive>iamlive</a>이 등장할 차례입니다!</p><p>설명보다는 iamlive 사이트에서 제공하는 예시를 한 번 보시죠.</p><p><img src=https://raw.githubusercontent.com/iann0036/iamlive/assets/iamlive.gif><br></p><p>감이 오시나요?</p><p>aws를 대상으로 뭔가 작업을 진행할 때, 그 작업에서 요구되는 IAM을 바로 확인할 수 있게 해줍니다!</p><h3 id=iamlive-설정하기>iamlive 설정하기<a href=#iamlive-설정하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>iamlive는 homebrew등으로 직접 설치할 수도 있지만, 설치하지 않고 <a href=https://meirg.co.il/2021/04/23/determining-aws-iam-policies-according-to-terraform-and-aws-cli/>docker를 이용하는 방법</a>도 있습니다.</p><p>여기서는 docker를 통해 iamlive를 실행하겠습니다. 우선, docker로 해당 이미지를 실행합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; docker run <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -p 80:10080 <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -p 443:10080 <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --name iamlive-test <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -it unfor19/iamlive-docker <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --mode proxy <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --bind-addr 0.0.0.0:10080 <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --force-wildcard-resource <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --output-file <span class=s2>&#34;/app/iamlive.log&#34;</span>
+</span></span></code></pre></div><p>처음 실행 하는 거기 때문에 이미지를 다운로드 받고 실행이 됩니다. 실행이 됐을 때 별도로 메세지가 표시되지는 않기 때문에 에러 없이 대기 상태에 있다면 정상적으로 실행된 것입니다.</p><blockquote><p>만약 iamlive 컨테이너를 실행 중에 ctrl+c를 눌러서 종료하면, 다음에 실행하고 싶을 때 <code>docker start iamlive-test</code>를 입력하면 됩니다. 그리고 <code>docker attach iamlive-test</code>를 입력하면 실행 중인 컨테이너에 접속할 수 있습니다.</p></blockquote><p>이제 별도로 터미널을 한 개 더 열고 다음 명령어를 실행합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; docker cp iamlive-test:/home/appuser/.iamlive ~/
+</span></span></code></pre></div><p>proxy 모드로 실행되는 iamlive에 접속하기 위한 키 파일을 프로필 루트 디렉토리로 복사했습니다. 다음 명령을 통해서 제대로 복사되었는지 확인할 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; ls ./.iamlive
+</span></span><span class=line><span class=cl>ca.key ca.pem
+</span></span></code></pre></div><h3 id=iamlive을-통해-권한-확인하기>iamlive을 통해 권한 확인하기<a href=#iamlive을-통해-권한-확인하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>원문에서 권장하는 방법은 권한이 하나도 없는 사용자를 만들고, 계속 명령어를 실행하면서 꼭 필요한 권한만 하나씩 복사하는 방식입니다. 그런데 이렇게 하면 필요한 권한이 많은 수록 여러번 명령을 반복적으로 실행하면서 권한을 하나씩 확인하고, 하나씩 추가해야 합니다. 꽤나 번거로운 작업이죠. 그래서 저는 그냥 어드민 권한이 있는 계정으로 테스트해서 전체 권한을 확인하고, 필요한 권한을 한 번에 할당하는 방식으로 진행하겠습니다.</p><p>앞서 작성한 코드를 대상으로 <code>terraform apply</code>를 실행하여 인프라를 배포합니다. 그리고 iamlive가 실행 중인 터미널을 잘 살펴보세요. 그러면 뭐가 막 지나가는 데 마지막 줄이 핵심입니다. 마지막 줄에는 다음과 같은 권한이 표시됩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=o>{</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;Version&#34;</span>: <span class=s2>&#34;2012-10-17&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;Statement&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>    <span class=o>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Effect&#34;</span>: <span class=s2>&#34;Allow&#34;</span>,
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Action&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;sts:GetCallerIdentity&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:CreateSecurityGroup&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeSecurityGroups&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeNetworkInterfaces&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DeleteSecurityGroup&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:RevokeSecurityGroupEgress&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:AuthorizeSecurityGroupIngress&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:RunInstances&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstances&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceTypes&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeTags&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeVpcs&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceAttribute&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeVolumes&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceCreditSpecifications&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=o>]</span>,
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Resource&#34;</span>: <span class=s2>&#34;*&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>  <span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></div><p>즉, 현재까지 작성된 terraform 코드를 실행해서 인프라를 구성하기 위해서는 이런 권한이 모두 필요하다는 거죠! 그럼 <code>tf destroy</code>도 바로 이어서 한 번 해볼까요? 그러면 최종적으로 이런 권한이 필요하다고 합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=o>{</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;Version&#34;</span>: <span class=s2>&#34;2012-10-17&#34;</span>,
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;Statement&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>    <span class=o>{</span>
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Effect&#34;</span>: <span class=s2>&#34;Allow&#34;</span>,
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Action&#34;</span>: <span class=o>[</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;sts:GetCallerIdentity&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:CreateSecurityGroup&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeSecurityGroups&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeNetworkInterfaces&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DeleteSecurityGroup&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:RevokeSecurityGroupEgress&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:AuthorizeSecurityGroupIngress&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:RunInstances&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstances&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceTypes&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeTags&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeVpcs&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceAttribute&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeVolumes&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:DescribeInstanceCreditSpecifications&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:ModifyInstanceAttribute&#34;</span>,
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;ec2:TerminateInstances&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=o>]</span>,
+</span></span><span class=line><span class=cl>      <span class=s2>&#34;Resource&#34;</span>: <span class=s2>&#34;*&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>  <span class=o>]</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></div><blockquote><p>이렇게 이쁘게 표시되지는 않습니다만&mldr; <a href=https://jsonformatter.org/json-pretty-print>JSON Formatter</a>등의 사이트를 통해 이쁘게 변환하시면 됩니다!</p></blockquote><p>네, 그럼 새로운 사용자를 만들어서 이 권한을 부여하겠습니다. 앞서 계정을 생성했던 것과 동일한 절차로 사용자 계정을 새로 생성합니다. 사용자 이름과 그룹 이름은 <code>terraform-user</code>로 설정하고, <code>그룹에는 아무런 권한을 주지 않습니다!</code></p><p><code>다시 한번 말씀드리면 그룹에는 아무런 권한을 주지 마세요!</code></p><blockquote><p>혹시 잊으실까봐 그러는데, 액세스 키와 비밀 액세스 키는 따로 저장해두셔야 합니다.</p></blockquote><p>자 그럼 그룹 설정에서 <code>권한</code>탭을 확인합니다. 현재 아무런 권한이 없는데요, 여기서 <code>권한 추가</code> -> <code>인라인 정책 생성</code>을 선택합니다.</p><p align=center><img src=./11.png></p><p>그리고 <code>권한 지정</code> 페이지에서 <code>JSON</code>탭을 선택하고, 앞서 iamlive에서 확인한 권한을 복사해서 붙여넣습니다.</p><p align=center><img src=./12.png></p><p>그리고 <code>다음</code>을 선택하고,</p><p align=center><img src=./13.png></p><p><code>정책 이름</code>을 <code>terraform-user</code>로 설정하고, <code>정책 생성</code>을 선택합니다. <code>정책 생성</code> 또는 <code>변경 사항 저장</code>(수정할 때)을 꼭 눌러주셔야만 반영됩니다.</p><p>자 그러면 새로 만든 유저로 동일한 코드를 실행해볼까요?</p><p>설정 파일(~/.zshrc)을 열어서 다음 내용을 새 유저의 액세스 키와 비밀 액세스 키로 변경합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 기존 유저 액세스 키</span>
+</span></span><span class=line><span class=cl><span class=c1># export AWS_ACCESS_KEY_ID=...</span>
+</span></span><span class=line><span class=cl><span class=c1># export AWS_SECRET_ACCESS_KEY=...</span>
+</span></span><span class=line><span class=cl><span class=c1># 새 유저 액세스 키</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>AWS_ACCESS_KEY_ID</span><span class=o>=</span>...
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>AWS_SECRET_ACCESS_KEY</span><span class=o>=</span>...
+</span></span></code></pre></div><p>그리고 변경된 설정 파일을 꼭 적용해주셔야 합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>source</span> ~/.zshrc
+</span></span></code></pre></div><p>자 그리고 다시 apply 해봅시다!</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>aws_instance.example: Creating...
+</span></span><span class=line><span class=cl>╷
+</span></span><span class=line><span class=cl>│ Error: creating EC2 Instance: UnauthorizedOperation: You are not authorized to perform this operation. User: arn:aws:iam::246181472423:user/terraform-user is not authorized to perform: ec2:CreateTags on resource: arn:aws:ec2:ap-northeast-2:246181472423:instance/* because no identity-based policy allows the ec2:CreateTags action. Encoded authorization failure message: -Ebof-TaMnw5iPJ_dVKP00sOBTScilmv_M3-TgALYm6r48Fi4oAIxOOMWghh0LZkPXrH1yqS5XIR9dsIgCLrHl2lua-CgXDXXWc0uq-QBmKupfCnhtGx2Sdu0-IqDwlImA5bmNOIlktmOj0WUUak8G4OtphB2zL0Yi7WnfDAruVd_CHJdYrkTEIW1are7RDvgX753V5h96s9_8zn7A8KVR479FT5qLrMy3lFAN1sfauVatYkbl8EztWa9qBC7zQ7goAq682lc-A0IbGrgQ3whJMqGaLwvK3Q5kL7QyvkJ-VXe5dq58YpZnMlvsc5uH76QVKiie_tdjMy28xpQ2EmRI3nqa9-1uvGIO6-1MKhwBbAeHQdz7kgmcp2aTI2BjBurhyDxQKWUKJqQCrY7-FTx4d2xdxyBaDM-LCujL2O-oFx2NBNYYBsRKO1E22gxcSakpwNqjg8omJ8-7X-8JhBGebfT6WM4ociL1T8OxIr6JG8dEnJWRzma4feKGZVCmkLxJbHPQW0IPF3FGtGbTFyir9YALbQDPX9yUwz4_w09slZdG7y-8aWBrlrCHccmcOmm8hpsthiNJbgtjTPxjZdHNWglMiUJ8PmiazOK04QcBLv5N71icCWdogluVBsCxmehFnPNWYq3BzWSdEhLtdQIK5sokmMEY2KFsJQ32cnBg
+</span></span><span class=line><span class=cl>│       status code: 403, request id: 88a0f4a9-c313-47b6-9677-7862747f9fb9
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>│   with aws_instance.example,
+</span></span><span class=line><span class=cl>│   on main.tf line 7, in resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span>:
+</span></span><span class=line><span class=cl>│    7: resource <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=o>{</span>
+</span></span></code></pre></div><p>그런데 오류가 발생하네요..! iamlive가 <code>ec2:CreateTags</code> 권한을 제대로 캐치를 하지 못해서 그렇습니다. 이 권한을 계정에 추가해주고 다시 확인해보면 생성과 삭제 모두 문제 없이 진행되는 걸 확인할 수 있습니다. 물론 저 권한을 하나씩 확인하면서 추가했다면 꽤나 복잡했겠죠? 그러다가 <code>아 ** 안해</code>하게 됩니다. 하하하하하&mldr;.개발이 다 그렇죠 뭐&mldr;</p><h2 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li><a href=https://github.com/iann0036/iamlive>https://github.com/iann0036/iamlive</a></li><li><a href=https://meirg.co.il/2021/04/23/determining-aws-iam-policies-according-to-terraform-and-aws-cli/>Determining AWS IAM Policies According To Terraform And AWS CLI</a></li><li><a href=https://www.terraformupandrunning.com/>Terraform Up and Running, 3rd Edition</a></li></ul><h1 id=license>License<a href=#license class=hanchor arialabel=Anchor>&#8983;</a></h1><p><a href=https://creativecommons.org/licenses/by-nc-nd/2.0/kr/>저작자표시-비영리-변경금지 2.0 대한민국 (CC BY-NC-ND 2.0 KR)</a></p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/terraform%EC%9C%BC%EB%A1%9C-%EA%B8%B0%EC%A1%B4-azure-%EB%A6%AC%EC%86%8C%EC%8A%A4-%EC%9E%84%ED%8F%AC%ED%8A%B8%ED%95%98%EA%B8%B0/><span class=button__icon>←</span>
+<span class=button__text>Terraform으로 기존 Azure 리소스 임포트하기</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/github-copilot-first-look-%EC%B2%AB-%EC%9D%B8%EC%83%81%EA%B3%BC-react-%EA%B0%9C%EB%B0%9C-%EC%9D%BC%EC%A3%BC%EC%9D%BC-%EC%82%AC%EC%9A%A9%ED%9B%84%EA%B8%B0/><span class=button__text>Github Copilot First Look - 첫 인상과 React 개발 일주일 사용후기</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>

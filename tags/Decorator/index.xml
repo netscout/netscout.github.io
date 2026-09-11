@@ -1,0 +1,1035 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Decorator on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/Decorator/</link><description>Recent content in Decorator on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Sat, 06 Sep 2025 23:42:51 +0000</lastBuildDate><atom:link href="https://netscout.github.io/tags/Decorator/index.xml" rel="self" type="application/rss+xml"/><item><title>Typescript: Decorator Metadata</title><link>https://netscout.github.io/posts/typescript-decorator-metadata/</link><pubDate>Sat, 06 Sep 2025 23:42:51 +0000</pubDate><guid>https://netscout.github.io/posts/typescript-decorator-metadata/</guid><description>Typescript는 5.0 부터 ECMAScript의 표준에 발맞춘 Decorator를 지원하고 있습니다. 얼마전에 이와 관련된 글을 쓴적이 있었죠! 그런데 ECMAScript의 표준에는 이 데코레이터를 좀 더 강력하게 사용할 수 있는 방법도 같이 제시되고 …</description><content>&lt;h2 id="개요">개요&lt;/h2>
+&lt;p>Typescript는 5.0 부터 ECMAScript의 표준에 발맞춘 Decorator를 지원하고 있습니다. 얼마전에 &lt;a href="https://raw.githubusercontent.com/netscout/typescript-studies/main/src/decorator/README.md">이와 관련된 글&lt;/a>을 쓴적이 있었죠! 그런데 ECMAScript의 표준에는 이 &lt;a href="https://github.com/tc39/proposal-decorator-metadata">데코레이터를 좀 더 강력하게 사용할 수 있는 방법&lt;/a>도 같이 제시되고 있습니다. 데코레이터의 메타데이터를 이용해서 데코레이터가 감싸고 있는 클래스의 정보를 추출하는 메타 프로그래밍을 지원합니다. Typescript 역시 5.2 버전 부터 이 기능을 지원하고 있습니다.&lt;/p>
+&lt;h2 id="아주-간단한-예제">아주 간단한 예제&lt;/h2>
+&lt;p>그럼 이 데코레이터 메타데이터가 뭔지 간단한 예제를 통해서 확인해보겠습니다. 우선 데코레이터 메타데이터를 사용하기 위해서는 다음과 같이 &lt;code>tsconfig.json&lt;/code> 파일을 설정해야 합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;compilerOptions&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;es2022&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;lib&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;es2022&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;esnext.decorators&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;dom&amp;#34;&lt;/span>&lt;span class="p">],&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;experimentalDecorators&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;useDefineForClassFields&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 아직 node.js가 데코레이터 메타데이터를 지원하지 않기 때문에 다음과 같이 코드에 polyfill을 추가해야 합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 프로그램의 진입점에 한 번만 선언하면 됩니다!
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">Symbol&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">metadata&lt;/span> &lt;span class="o">??=&lt;/span> &lt;span class="nx">Symbol&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Symbol.metadata&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이제 간단하게 코드를 작성해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/decorator-metadata/src/simple-decorator-metadata.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Symbol.metadata polyfill
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">Symbol&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">metadata&lt;/span> &lt;span class="o">??=&lt;/span> &lt;span class="nx">Symbol&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Symbol.metadata&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 데코레이터 Context 인터페이스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">interface&lt;/span> &lt;span class="nx">Context&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">metadata&lt;/span>: &lt;span class="kt">Record&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">PropertyKey&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">unknown&lt;/span>&lt;span class="p">&amp;gt;;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 데코레이터 메타데이터에 필드의 이름을 추가하는 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param _target 데코레이터가 적용된 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param context 데코레이터 컨텍스트
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">setMetadata&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">_target&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">Context&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 데코레이터 메타데이터에 해당 필드의 이름을 추가합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">SomeClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@setMetadata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">foo&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">123&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@setMetadata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">accessor&lt;/span> &lt;span class="nx">bar&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;hello!&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@setMetadata&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">baz() {&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 데코레이터 메타데이터를 확인합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">ourMetadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">SomeClass&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">JSON&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stringify&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ourMetadata&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 출력: { &amp;#34;bar&amp;#34;: true, &amp;#34;baz&amp;#34;: true, &amp;#34;foo&amp;#34;: true }
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이 코드는 말이죠:&lt;/p>
+&lt;ul>
+&lt;li>코드 최상단에 &lt;code>Symbol.metadata&lt;/code>를 지원하기 위한 polyfill을 추가했습니다.&lt;/li>
+&lt;li>setMetadata 데코레이터 함수를 정의했습니다.&lt;/li>
+&lt;li>setMetadata를 호출하면 데코레이터 메타데이터에 &amp;lsquo;해당 필드의 이름&amp;rsquo; = true 를 추가합니다.&lt;/li>
+&lt;li>데코레이터 메타데이터는 &lt;code>각 클래스 별로 고유한 객체&lt;/code>이며, &lt;code>Symbol.metadata&lt;/code> 을 통해 접근할 수 있습니다.&lt;/li>
+&lt;/ul>
+&lt;p>이 코드를 실행하면 다음과 같은 결과가 출력됩니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; npx ts-node ./src/simple-decorator-metadata.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">{&lt;/span>&lt;span class="s2">&amp;#34;bar&amp;#34;&lt;/span>:true,&lt;span class="s2">&amp;#34;baz&amp;#34;&lt;/span>:true,&lt;span class="s2">&amp;#34;foo&amp;#34;&lt;/span>:true&lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>SomeClass의 foo, bar, baz 필드에 setMetadata 데코레이터가 적용되었기 때문에 데코레이터 메타데이터에 foo, bar, baz 필드의 이름이 추가된 걸 확인할 수 있습니다.&lt;/p>
+&lt;p>이제 조금 더 실용적인 예제를 살펴볼까요?&lt;/p>
+&lt;h2 id="의존성-주입dependency-injection-예제">의존성 주입(Dependency Injection) 예제&lt;/h2>
+&lt;p>일단 데코레이터를 사용해서 의존성 주입(Dependency Injection)을 구현해보겠습니다.&lt;/p>
+&lt;blockquote>
+&lt;p>이 예제는 테스트를 위한 구현이기 때문에 싱글턴 패턴, 순환 참조 탐지 등의 기능을 구현하지 않습니다. 실제 서비스에서는 &lt;a href="https://github.com/inversify/InversifyJS">InversifyJS&lt;/a> 같은 의존성 주입 라이브러리를 사용하는 것이 좋습니다.&lt;/p>&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/decorator-metadata/src/dependency-injection.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Injectable 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스를 DI 컨테이너에 등록합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param token 클래스 이름
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 데코레이터 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token?&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">target&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">registry&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// token: Logger, target.name: LoggerService, target: LoggerService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">target&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">target&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 환경에 상관없이 사용할 수 있도록 globalThis에 글로벌 컨테이너를 설정합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span> &lt;span class="o">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 글로벌 컨테이너에 등록합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">registry&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Inject 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스 필드에 DI로 객체의 인스턴스를 주입합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param token 클래스 이름
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 데코레이터 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">target&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassFieldDecoratorContext&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">initialValue&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Inject 데코레이터를 전달되는 token(ex: Logger)에 해당하는 서비스 클래스를 찾습니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">container&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">serviceClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">container&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">get&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">serviceClass&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`컨테이너에서 &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> 클래스를 찾을 수 없습니다.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">serviceClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * LoggerService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">LoggerService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">constructor&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;LoggerService constructor&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">message&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`[LOG] &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nb">Date&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="nx">toISOString&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">: &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">message&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * DatabaseService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Database&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">DatabaseService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">logger&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">query&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">sql&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Executing: &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">sql&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">rows&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">[]&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * UserService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;UserService&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">UserService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Database&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">DatabaseService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">logger&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">getUser&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">id&lt;/span>: &lt;span class="kt">number&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Getting user &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">query&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`SELECT * FROM users WHERE id = &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 사용 예제
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">userService&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">UserService&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">userService&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">getUser&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">123&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>조금 복잡하게 느껴집니다&amp;hellip; 우선 실행 순서를 정리해보면 다음과 같습니다.&lt;/p>
+&lt;pre class="mermaid">graph TB
+subgraph ProcessFlow[&amp;#34;🔄 처리 흐름&amp;#34;]
+Step1[&amp;#34;1️⃣ 클래스 정의 시&amp;lt;br/&amp;gt;데코레이터 실행&amp;#34;]
+Step2[&amp;#34;2️⃣ 컨테이너에&amp;lt;br/&amp;gt;토큰-클래스 매핑 저장&amp;#34;]
+Step3[&amp;#34;3️⃣ 인스턴스 생성 시&amp;lt;br/&amp;gt;의존성 자동 해결&amp;#34;]
+Step4[&amp;#34;4️⃣ 재귀적으로&amp;lt;br/&amp;gt;모든 의존성 주입&amp;#34;]
+end
+%% 처리 흐름
+Step1 --&amp;gt; Step2
+Step2 --&amp;gt; Step3
+Step3 --&amp;gt; Step4&lt;/pre>&lt;ol>
+&lt;li>클래스에 정의된 Injectable 데코레이터에 token(ex: Logger)과 클래스(ex: LoggerService)가 전달됩니다.&lt;/li>
+&lt;li>Injectable 데코레이터는 글로벌 DI 컨테이너에 token-클래스 매핑을 저장합니다.&lt;/li>
+&lt;li>그 다음 Inject 데코레이터에 token(ex: Logger)이 전달되면, 글로벌 DI 컨테이너에서 token에 해당하는 클래스를 찾아서 인스턴스를 생성하여 주입합니다.&lt;/li>
+&lt;li>의존성 주입은 제귀적으로 발생합니다.(UserService -&amp;gt; DatabaseService -&amp;gt; LoggerService)&lt;/li>
+&lt;/ol>
+&lt;p>전체 구조를 도식화 해보면 다음과 같습니다.&lt;/p>
+&lt;pre class="mermaid">graph TB
+subgraph GlobalContainer[&amp;#34;🌐 글로벌 DI 컨테이너&amp;#34;]
+DIMap[&amp;#34;globalThis.diContainer&amp;lt;br/&amp;gt;Map&amp;amp;lt;string, Constructor&amp;amp;gt;&amp;#34;]
+TokenLogger[&amp;#34;&amp;#39;Logger&amp;#39; ➜ LoggerService&amp;#34;]
+TokenDatabase[&amp;#34;&amp;#39;Database&amp;#39; ➜ DatabaseService&amp;#34;]
+TokenUser[&amp;#34;&amp;#39;UserService&amp;#39; ➜ UserService&amp;#34;]
+end
+subgraph DecoratorSystem[&amp;#34;🏷️ 데코레이터&amp;#34;]
+InjectableDecorator[&amp;#34;@Injectable(token?)&amp;lt;br/&amp;gt;📝 클래스 등록 데코레이터&amp;lt;br/&amp;gt;• 토큰 생성&amp;lt;br/&amp;gt;• 컨테이너 저장&amp;#34;]
+InjectDecorator[&amp;#34;@Inject(token)&amp;lt;br/&amp;gt;💉 의존성 주입 데코레이터&amp;lt;br/&amp;gt;• 컨테이너 조회&amp;lt;br/&amp;gt;• 인스턴스 생성&amp;#34;]
+end
+subgraph ServiceLayer[&amp;#34;🔧 서비스 계층&amp;#34;]
+Logger[&amp;#34;🟢 LoggerService&amp;lt;br/&amp;gt;@Injectable(&amp;#39;Logger&amp;#39;)&amp;lt;br/&amp;gt;────────────&amp;lt;br/&amp;gt;+ constructor()&amp;lt;br/&amp;gt;+ log(message: string)&amp;#34;]
+Database[&amp;#34;🟡 DatabaseService&amp;lt;br/&amp;gt;@Injectable(&amp;#39;Database&amp;#39;)&amp;lt;br/&amp;gt;@Inject(&amp;#39;Logger&amp;#39;) logger&amp;lt;br/&amp;gt;────────────&amp;lt;br/&amp;gt;+ query(sql: string)&amp;#34;]
+User[&amp;#34;🔴 UserService&amp;lt;br/&amp;gt;@Injectable(&amp;#39;UserService&amp;#39;)&amp;lt;br/&amp;gt;@Inject(&amp;#39;Database&amp;#39;) db&amp;lt;br/&amp;gt;@Inject(&amp;#39;Logger&amp;#39;) logger&amp;lt;br/&amp;gt;────────────&amp;lt;br/&amp;gt;+ getUser(id: number)&amp;#34;]
+end
+subgraph RuntimeExecution[&amp;#34;⚡ 실행 시점&amp;#34;]
+ClientCode[&amp;#34;📱 클라이언트 코드&amp;lt;br/&amp;gt;const userService = new UserService()&amp;lt;br/&amp;gt;userService.getUser(123)&amp;#34;]
+end
+%% 등록 과정
+InjectableDecorator -.-&amp;gt;|&amp;#34;🏷️ 클래스에 데코레이터 추가&amp;lt;br/&amp;gt;토큰 생성 및 등록 준비&amp;#34;| Logger
+InjectableDecorator -.-&amp;gt;|&amp;#34;🏷️ 클래스에 데코레이터 추가&amp;lt;br/&amp;gt;토큰 생성 및 등록 준비&amp;#34;| Database
+InjectableDecorator -.-&amp;gt;|&amp;#34;🏷️ 클래스에 데코레이터 추가&amp;lt;br/&amp;gt;토큰 생성 및 등록 준비&amp;#34;| User
+%% 컨테이너 저장
+Logger -.-&amp;gt;|&amp;#34;💾 &amp;#39;Logger&amp;#39; 토큰으로&amp;lt;br/&amp;gt;LoggerService 클래스 저장&amp;#34;| TokenLogger
+Database -.-&amp;gt;|&amp;#34;💾 &amp;#39;Database&amp;#39; 토큰으로&amp;lt;br/&amp;gt;DatabaseService 클래스 저장&amp;#34;| TokenDatabase
+User -.-&amp;gt;|&amp;#34;💾 &amp;#39;UserService&amp;#39; 토큰으로&amp;lt;br/&amp;gt;UserService 클래스 저장&amp;#34;| TokenUser
+%% 의존성 관계
+Database --&amp;gt;|&amp;#34;🔗 DatabaseService.logger 필드&amp;lt;br/&amp;gt;LoggerService 인스턴스 필요&amp;#34;| Logger
+User --&amp;gt;|&amp;#34;🔗 UserService.db 필드&amp;lt;br/&amp;gt;DatabaseService 인스턴스 필요&amp;#34;| Database
+User --&amp;gt;|&amp;#34;🔗 UserService.logger 필드&amp;lt;br/&amp;gt;LoggerService 인스턴스 필요&amp;#34;| Logger
+%% 주입 과정
+InjectDecorator -.-&amp;gt;|&amp;#34;🔍 토큰으로 컨테이너 검색&amp;lt;br/&amp;gt;클래스 찾기 및 인스턴스 생성&amp;#34;| DIMap
+%% 실행 과정
+ClientCode --&amp;gt;|&amp;#34;🚀 new UserService() 호출&amp;lt;br/&amp;gt;의존성 주입 트리거&amp;#34;| User
+%% 스타일링
+classDef container fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+classDef decorator fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+classDef service fill:#e8f5e8,stroke:#4caf50,stroke-width:2px,color:#000
+classDef client fill:#fce4ec,stroke:#e91e63,stroke-width:2px,color:#000
+classDef process fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#000
+class DIMap,TokenLogger,TokenDatabase,TokenUser container
+class InjectableDecorator,InjectDecorator decorator
+class Logger,Database,User service
+class ClientCode client
+class Step1,Step2,Step3,Step4 process&lt;/pre>&lt;p>실행 결과는 다음과 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; npx ts-node ./src/dependency-injection.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">LoggerService constructor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">LoggerService constructor
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">[&lt;/span>LOG&lt;span class="o">]&lt;/span> 2025-09-06T00:30:24.749Z: Getting user &lt;span class="m">123&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">[&lt;/span>LOG&lt;span class="o">]&lt;/span> 2025-09-06T00:30:24.750Z: Executing: SELECT * FROM users WHERE &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">123&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>의존성 주입이 잘 되고 있군요! 그리고 &lt;code>LoggerService constructor&lt;/code>가 두번 출력되는 것에서 매번 의존성 주입이 발생할 때 마다 새로운 객체가 생성된 다는 걸 확인할 수 있습니다. 그런데 아직 데코레이터 메타데이터는 보이지 않습니다&amp;hellip; 이제 데코레이터 메타데이터를 이용해서 의존성 주입 정보를 더 자세히 확인할 수 있도록 해보겠습니다.&lt;/p>
+&lt;h2 id="데코레이터-메타데이터를-이용해서-의존성-주입-정보를-확인해보자">데코레이터 메타데이터를 이용해서 의존성 주입 정보를 확인해보자&lt;/h2>
+&lt;p>앞선 예제에 데코레이터 메타데이터를 추가하여 다음과 같이 작성해보겠습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/decorator-metadata/src/di-with-metadata.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Symbol.metadata 를 지원하기 위한 polyfill
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">Symbol&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">metadata&lt;/span> &lt;span class="o">??=&lt;/span> &lt;span class="nx">Symbol&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Symbol.metadata&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 데코레이터 메타데이터 사용할 심볼
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">Symbol&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;injection-tokens&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Injectable 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스를 DI 컨테이너에 등록합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param token 클래스 이름
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 데코레이터 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token?&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">target&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">registry&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// token: Logger, target.name: LoggerService, target: LoggerService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="nx">target&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">target&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 환경에 상관없이 사용할 수 있도록 globalThis에 글로벌 컨테이너를 설정합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span> &lt;span class="o">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 글로벌 컨테이너에 등록합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">registry&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">key&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Inject 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스 필드에 DI로 객체의 인스턴스를 주입합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param token 클래스 이름
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 데코레이터 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">target&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassFieldDecoratorContext&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">fieldName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">string&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="err">\&lt;/span>&lt;span class="sb">n=== &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">fieldName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39; 필드에 @Inject(&amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;) 설정 중 ===`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">metadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 메타데이터 객체에 injection tokens 정보가 없으면 생성
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">??=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// TypeScript의 메타데이터에 필드명과 토큰 매핑 저장
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">injectionTokens&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">string&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">injectionTokens&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">set&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">fieldName&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">token&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;→ 메타데이터에 저장된 의존성 주입 정보:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">injectionTokens&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">initialValue&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">container&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">globalThis&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">diContainer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">serviceClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">container&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">get&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">serviceClass&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`컨테이너에서 &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> 클래스를 찾을 수 없습니다.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">serviceClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 메타데이터를 확인하기 위한 유틸리티 함수들
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스 인스턴스에서 TypeScript 메타데이터로부터 DI 정보를 확인합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param instance 클래스 인스턴스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns DI로 주입된 정보
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">getInjectionInfo&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">instance&lt;/span>: &lt;span class="kt">object&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="kc">undefined&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="kr">constructor&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">instance&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">constructor&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">metadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">constructor&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">)[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">undefined&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스의 생성자를 통해 TypeScript 메타데이터로부터 DI 정보를 확인합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param constructor 클래스 생성자
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns DI로 주입된 정보
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">getClassInjectionInfo&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">constructor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nb">Function&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="kc">undefined&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">metadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">constructor&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">)[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">undefined&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="nx">Map&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">string&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="na">string&lt;/span>&lt;span class="p">&amp;gt;;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스 인스턴스에서 TypeScript 메타데이터의 DI 정보를 디버깅합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param instance 클래스 인스턴스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">debugInstance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">instance&lt;/span>: &lt;span class="kt">object&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">instance&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="kr">constructor&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">injections&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">getInjectionInfo&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">instance&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="err">\&lt;/span>&lt;span class="sb">n=== &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">className&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> 메타데이터의 의존성 주입 정보 ===`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">injections&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nx">injections&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">size&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">field&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">token&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="k">of&lt;/span> &lt;span class="nx">injections&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">` &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">field&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> &amp;lt;- &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">token&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34; 메타데이터에 의존성 주입 정보가 없습니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 클래스의 전체 TypeScript 메타데이터 구조를 확인합니다.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param constructor 클래스 생성자
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">inspectMetadata&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kr">constructor&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nb">Function&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">metadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kr">constructor&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">)[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kr">constructor&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="err">\&lt;/span>&lt;span class="sb">n=== &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">className&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> 메타데이터 구조 ===`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="o">!&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34; 메타데이터가 없습니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">injectionTokens&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">metadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">injectionTokens&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34; 의존성 주입 토큰:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">injectionTokens&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34; 의존성 주입 토큰이 없습니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * LoggerService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">LoggerService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">message&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`[LOG] &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nb">Date&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="nx">toISOString&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">: &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">message&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * DatabaseService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Database&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">DatabaseService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">logger&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">query&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">sql&lt;/span>: &lt;span class="kt">string&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Executing: &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">sql&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">rows&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="p">[]&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * UserService 클래스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">@Injectable&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;UserService&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">UserService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Database&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">DatabaseService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@Inject&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Logger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">logger&lt;/span>&lt;span class="o">!:&lt;/span> &lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">getUser&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">id&lt;/span>: &lt;span class="kt">number&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Getting user &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">query&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`SELECT * FROM users WHERE id = &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// DEMO: 데코레이터 메타데이터를 통한 DI 정보 확인
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;=== 데코레이터 메타데이터를 통한 DI 정보 확인 ===&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 전체 메타데이터 구조 확인
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">inspectMetadata&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">inspectMetadata&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">DatabaseService&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">inspectMetadata&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">UserService&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 생성된 클래스에서 TypeScript 메타데이터의 DI 정보 확인
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">userService&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">UserService&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">debugInstance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">userService&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">debugInstance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nx">DatabaseService&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">debugInstance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nx">LoggerService&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 클래스를 통해 TypeScript 메타데이터의 DI 정보 확인
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">userInjections&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">getClassInjectionInfo&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">UserService&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;\nUserService 메타데이터의 의존성 주입 정보:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">userInjections&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 메타데이터에 직접 접근해보기
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;\n=== 메타데이터에 직접 접근 ===&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">userMetadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">UserService&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">)[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;UserService 메타데이터 객체:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">userMetadata&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="s2">&amp;#34;UserService 의존성 주입 토큰:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">userMetadata&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="nx">INJECTION_TOKENS_KEY&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;\n=== 서비스 실행 ===&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">userService&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">getUser&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">123&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>코드의 최상단에 Symbol.metadata를 지원하기 위한 polyfill이 추가되었습니다. 그리고 각 클래스의 데코레이터 메타데이터에 의존성 주입 정보를 저장하는 WeakMap을 선언했습니다.&lt;/p>
+&lt;p>그리고 Inject 데코레이터에 메타데이터 객체를 이용하여 특정 클래스에서 발생한 의존성 주입 정보를 저장하도록 했습니다. 그리고 여러 헬퍼 함수를 통해 메타데이터의 정보를 확인할 수 있도록 했습니다. 해당 코드를 보시면 다음과 같이 특정 클래스의 데코레이터 메타데이터를 불러오고 있습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">metadata&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">UserService&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">)[&lt;/span>&lt;span class="nx">Symbol&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">metadata&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>코드를 실행한 결과를 볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; npx ts-node ./src/di-with-metadata.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> 필드에 @Inject&lt;span class="o">(&lt;/span>&lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span>&lt;span class="o">)&lt;/span> 설정 &lt;span class="nv">중&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">→ 메타데이터에 저장된 의존성 주입 정보: Map&lt;span class="o">(&lt;/span>1&lt;span class="o">)&lt;/span> &lt;span class="o">{&lt;/span> &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> &lt;span class="s1">&amp;#39;db&amp;#39;&lt;/span> 필드에 @Inject&lt;span class="o">(&lt;/span>&lt;span class="s1">&amp;#39;Database&amp;#39;&lt;/span>&lt;span class="o">)&lt;/span> 설정 &lt;span class="nv">중&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">→ 메타데이터에 저장된 의존성 주입 정보: Map&lt;span class="o">(&lt;/span>1&lt;span class="o">)&lt;/span> &lt;span class="o">{&lt;/span> &lt;span class="s1">&amp;#39;db&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Database&amp;#39;&lt;/span> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> 필드에 @Inject&lt;span class="o">(&lt;/span>&lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span>&lt;span class="o">)&lt;/span> 설정 &lt;span class="nv">중&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">→ 메타데이터에 저장된 의존성 주입 정보: Map&lt;span class="o">(&lt;/span>2&lt;span class="o">)&lt;/span> &lt;span class="o">{&lt;/span> &lt;span class="s1">&amp;#39;db&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Database&amp;#39;&lt;/span>, &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> 데코레이터 메타데이터를 통한 DI 정보 &lt;span class="nv">확인&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> LoggerService 메타데이터 &lt;span class="nv">구조&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 의존성 주입 토큰이 없습니다.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> DatabaseService 메타데이터 &lt;span class="nv">구조&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 의존성 주입 토큰: Map&lt;span class="o">(&lt;/span>1&lt;span class="o">)&lt;/span> &lt;span class="o">{&lt;/span> &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> UserService 메타데이터 &lt;span class="nv">구조&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 의존성 주입 토큰: Map&lt;span class="o">(&lt;/span>2&lt;span class="o">)&lt;/span> &lt;span class="o">{&lt;/span> &lt;span class="s1">&amp;#39;db&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Database&amp;#39;&lt;/span>, &lt;span class="s1">&amp;#39;logger&amp;#39;&lt;/span> &lt;span class="o">=&lt;/span>&amp;gt; &lt;span class="s1">&amp;#39;Logger&amp;#39;&lt;/span> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> UserService 메타데이터의 의존성 주입 &lt;span class="nv">정보&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> db &amp;lt;- Database
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> logger &amp;lt;- &lt;span class="nv">Logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> DatabaseService 메타데이터의 의존성 주입 &lt;span class="nv">정보&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> logger &amp;lt;- &lt;span class="nv">Logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> LoggerService 메타데이터의 의존성 주입 &lt;span class="nv">정보&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> 메타데이터에 의존성 주입 정보가 없습니다.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> 서비스 &lt;span class="nv">실행&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">[&lt;/span>LOG&lt;span class="o">]&lt;/span> 2025-09-06T01:13:29.104Z: Getting user &lt;span class="m">123&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">[&lt;/span>LOG&lt;span class="o">]&lt;/span> 2025-09-06T01:13:29.105Z: Executing: SELECT * FROM users WHERE &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">123&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>처음 세 줄은 Inject 데코레이터가 실행될 때 출력되는 로그입니다. 가장먼저 DatabaseService의 logger 필드에 의존성이 주입되고, 이어서 UserService의 db, logger 필드에 순서대로 의존성이 주입되고 있습니다.&lt;/p>
+&lt;p>그 다음 세줄은 각 클래스의 데코레이터 메타데이터를 살펴보고 있습니다.&lt;/p>
+&lt;p>그리고 그 다음 세 줄은 각 클래스의 데코레이터 메타데이터를 통해 의존성 주입 정보를 확인하고 있구요, 마지막 2줄은 서비스 실행 결과입니다.&lt;/p>
+&lt;h2 id="reflect-metadata-와의-비교">reflect-metadata 와의 비교&lt;/h2>
+&lt;p>&lt;a href="https://github.com/microsoft/reflect-metadata">reflect-metadata&lt;/a>는 데코레이터의 메타데이터를 활용하기 위해 그동안 활용되어 왔습니다. 하지만, 새로운 표준의 등장으로 신규 프로젝트에서는 표준 데코레이터 메타데이터를 사용하는 게 좋습니다.&lt;/p>
+&lt;ul>
+&lt;li>번들링 사이즈를 줄일 수 있습니다. 라이브러리를 polyfill로 대체할 수 있죠.&lt;/li>
+&lt;li>데코레이터 메타데이터는 Stage 3 단계에 있습니다. Stage 3는 Candidate 상태로서 대부분 완성 되어 안정적이라고 판단할 수 있는 상태입니다. 따라서 향후 표준이 진행되는 방향을 따라가는 게 자연스럽습니다. 그리고 reflect-metadata 리포지토리에서도 이 점을 분명히 하고 있습니다.&lt;/li>
+&lt;li>reflect-metadata는 메타데이터를 가져오기 위해 Prototype 체인을 순회합니다. 따라서 메타데이터 처리를 위해 더 많은 작업이 필요하고, 성능 측면에서 불리합니다.&lt;/li>
+&lt;/ul>
+&lt;h2 id="참고자료">참고자료&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html#decorator-metadata">TypeScript 5.2/Decorator Metadata&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.typescriptlang.org/ko/docs/handbook/decorators.html#%EB%A9%94%ED%83%80%EB%8D%B0%EC%9D%B4%ED%84%B0-metadata">TypeScript Decorators&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/tc39/proposal-decorator-metadata">TC39/proposal-decorator-metadata&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.bitsrc.io/typescripts-reflect-metadata-what-it-is-and-how-to-use-it-fb7b19cfc7e2">TypeScript’s Reflect Metadata: What it is and How to Use it&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/microsoft/reflect-metadata">reflect-metadata&lt;/a>&lt;/li>
+&lt;/ul></content></item><item><title>Typescript: Decorator</title><link>https://netscout.github.io/posts/typescript-decorator/</link><pubDate>Sat, 02 Aug 2025 23:28:08 +0000</pubDate><guid>https://netscout.github.io/posts/typescript-decorator/</guid><description>&lt;ol>
+&lt;li>개요 2. 기존에 작성했던 데코레이터 (Legacy) 3. TypeScript 5.0+의 데코레이터 (Modern) 4. 좀 더 확장해보기 5. 참고자료&lt;/li>
+&lt;/ol></description><content>&lt;h2 id="-목차-table-of-contents">📚 목차 (Table of Contents)&lt;/h2>
+&lt;ol>
+&lt;li>&lt;a href="https://netscout.github.io/posts/typescript-decorator/#%ea%b0%9c%ec%9a%94">개요&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://netscout.github.io/posts/typescript-decorator/#%ea%b8%b0%ec%a1%b4%ec%97%90-%ec%9e%91%ec%84%b1%ed%96%88%eb%8d%98-%eb%8d%b0%ec%bd%94%eb%a0%88%ec%9d%b4%ed%84%b0">기존에 작성했던 데코레이터 (Legacy)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://netscout.github.io/posts/typescript-decorator/#typescript-50%ec%9d%98-%eb%8d%b0%ec%bd%94%eb%a0%88%ec%9d%b4%ed%84%b0">TypeScript 5.0+의 데코레이터 (Modern)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://netscout.github.io/posts/typescript-decorator/#%ec%a2%80-%eb%8d%94-%ed%99%95%ec%9e%a5%ed%95%b4%eb%b3%b4%ea%b8%b0">좀 더 확장해보기&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://netscout.github.io/posts/typescript-decorator/#%ec%b0%b8%ea%b3%a0%ec%9e%90%eb%a3%8c">참고자료&lt;/a>&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;h2 id="개요">개요&lt;/h2>
+&lt;p>예전에 퇴사했던 직원이 작성했던 프로젝트를 유지보수하기 위해 코드를 들여다 본적이 있었습니다. 그 프로젝트를 A라고 해보죠. 4-5개의 프로젝트를 동시에 띄워놓고 동작을 확인해야 했어서 정신없이 프로젝트를 실행하고 동작을 확인하던 중 A에서 뭔가 제대로 동작하지 않는다는 걸 확인했습니다. 그래서 로그를 확인해보다 놀랐습니다! A에는 로그를 남기는 코드가 단 한 줄도 없었거든요&amp;hellip;&lt;/p>
+&lt;p>그래서 일단 요청을 처리하는 각 메서드 마다 시작과 끝을 로그로 남겨야겠다는 생각에 로그를 추가하다가 문득 얼마전 지나가듯이 봤던 Typescript의 데코레이터(Decorator)가 기억났습니다. 그래서 무작정 찾아보며 코드를 작성하기 시작했습니다.&lt;/p>
+&lt;h2 id="기존에-작성했던-데코레이터">기존에 작성했던 데코레이터&lt;/h2>
+&lt;p>우선 tsconfig.json 파일을 다음과 같이 설정합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;compilerOptions&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;experimentalDecorators&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 데코레이터를 작성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/legacy_decorator.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 메서드의 시작과 끝을 기록하는 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">export&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">MethodDecorator&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="nx">actualDecorator&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">T&lt;/span>&lt;span class="p">&amp;gt;(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">target&lt;/span>: &lt;span class="kt">object&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">propertyKey&lt;/span>: &lt;span class="kt">string&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="kt">symbol&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">descriptor&lt;/span>: &lt;span class="kt">TypedPropertyDescriptor&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">T&lt;/span>&lt;span class="p">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="k">void&lt;/span> &lt;span class="o">|&lt;/span> &lt;span class="nx">TypedPropertyDescriptor&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">T&lt;/span>&lt;span class="p">&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">originalMethod&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">descriptor&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">value&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">unknown&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">propertyKey&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">descriptor&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">value&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">replacementMethod&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="kt">unknown&lt;/span> &lt;span class="kr">as&lt;/span> &lt;span class="nx">T&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">descriptor&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// @ts-ignore - Typescript 5.8의 데코레이터 타입 체크를 일단 해제
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="c1">// 메서드에 데코레이터 적용
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>참고로 해당 코드는 Typescript 5.1 에서 작성되었으나, 글을 작성하는 현재 최신 버전인 5.8에서의 실행을 위해 일단 @ts-ignore를 적용했습니다.&lt;/p>&lt;/blockquote>
+&lt;p>그리고 실행해보면 결과는 아래와 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node legacy_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>메서드가 호출될 때마다 로그가 출력되는걸 볼 수 있습니다.&lt;/p>
+&lt;p>그런데 이 데코레이터는 몇가지 문제점이 있습니다. 현재 이 데코레이터는 비동기 함수에 대해서는 제대로 동작하지 않습니다. 비동기 함수 역시 지원하려면 좀 복잡한 로직을 작성해야만 합니다. 그리고 이게 더 큰 문제인데요, 이 데코레이터는 ECMAscript의 &lt;a href="https://github.com/tc39/proposal-decorators">TC39&lt;/a>에서 제시된 데코레이터 시그니처와 맞지 않습니다. 언젠가는 사라질 운명이라는 거죠.&lt;/p>
+&lt;h2 id="typescript-50의-데코레이터">Typescript 5.0+의 데코레이터&lt;/h2>
+&lt;p>그래서 Typescript 5.0+에서는 표준과 발맞추도록 데코레이터를 개선했습니다. 앞서 보셨던 코드와 동일한 작업을 하는 코드입니다. 이 코드를 실행하기 위해서 tsconfig.json 파일을 다음과 같이 설정합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;compilerOptions&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;target&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;es2022&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 데코레이터를 작성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/new_decorator.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그럼 코드를 실행해 볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node new_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>잘 동작합니다! 그러면 비동기 함수를 하나 추가해보면 어떨까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/new_decorator.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="nx">myAsyncMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method start&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">500&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method end&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myAsyncMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>실행 결과는 다음과 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node new_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myAsyncMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async method start
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myAsyncMethod&amp;#39;&lt;/span>. &amp;lt;---- 비동기 함수가 끝나기 전에 로그가 출력되었습니다.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async method end
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>비동기 함수가 끝나는 걸 기다리지 않고, 바로 메서드 종료 로그가 출력되었죠? 이제 비동기 함수를 지원하도록 변경해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/new_decorator.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드인 경우, Promise가 완료된 후 로그를 출력
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">result&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="k">typeof&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">then&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="s2">&amp;#34;function&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="k">finally&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="nx">myAsyncMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method start&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">r&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">500&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method end&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myAsyncMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>원본 메서드릐 실행 결과를 받아서 Promise 인지 여부를 확인하는 코드를 추가했습니다. 결과를 볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myAsyncMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async method start
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async method end
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myAsyncMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이제 비동기 함수도 잘 기다려주는 군요! 이제 마지막으로 한 가지만 더 확인해보겠습니다. 예외가 발생했을 때 말이죠!&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드인 경우, Promise가 완료된 후 로그를 출력
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">result&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="k">typeof&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">then&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="s2">&amp;#34;function&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="k">finally&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span> &lt;span class="c1">// 동기 작업에서 오류 발생
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="nx">myAsyncMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method start&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">res&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">rej&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rej&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// 비동기 작업에서 오류 발생
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="p">},&lt;/span> &lt;span class="mi">500&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method end&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myAsyncMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>위 작업에서 두 메서드 중 하나에서 오류가 발생하도록 해보면 결과는 다음과 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node new_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:31
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> throw new Error&lt;span class="o">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ^
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Error: &lt;span class="nb">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at MyClass.myMethod &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:31:11&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at MyClass.replacementMethod &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:10:37&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Object.&amp;lt;anonymous&amp;gt; &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:48:9&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module._compile &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1554:14&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module.m._compile &lt;span class="o">(&lt;/span>/Users/onlifecoding/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1618:23&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at node:internal/modules/cjs/loader:1706:10
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Object.require.extensions.&amp;lt;computed&amp;gt; &lt;span class="o">[&lt;/span>as .ts&lt;span class="o">]&lt;/span> &lt;span class="o">(&lt;/span>/Users/onlifecoding/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1621:12&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module.load &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1289:32&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Function._load &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1108:12&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at TracingChannel.traceSync &lt;span class="o">(&lt;/span>node:diagnostics_channel:322:14&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>뭐 이거도 그렇게 나쁘진 않지만, 데코레이터가 제대로 메서드의 종료를 출력하진 못하고 있죠. 수정해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">loggedMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">headMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;🚩&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Entering method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드인 경우, Promise가 완료된 후 로그를 출력
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">result&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="k">typeof&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">then&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="s2">&amp;#34;function&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="k">finally&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;.`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">catch&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">headMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> Exiting method &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39; with error.`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="nx">error&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">MyClass&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">myMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;myMethod called&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@loggedMethod&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="nx">myAsyncMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method start&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">res&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">rej&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rej&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">},&lt;/span> &lt;span class="mi">500&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;async method end&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">myClass&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MyClass&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">myClass&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">myAsyncMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이제 함수에서 발생하는 오류를 확인해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node new_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Entering method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">myMethod called
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🚩 Exiting method &lt;span class="s1">&amp;#39;myMethod&amp;#39;&lt;/span> with error.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:39
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> throw new Error&lt;span class="o">(&lt;/span>&lt;span class="s2">&amp;#34;test&amp;#34;&lt;/span>&lt;span class="o">)&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ^
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Error: &lt;span class="nb">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at MyClass.myMethod &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:39:11&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at MyClass.replacementMethod &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:12:39&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Object.&amp;lt;anonymous&amp;gt; &lt;span class="o">(&lt;/span>/Users/onlifecoding/src/test/typescript-studies/src/decorator/src/new_decorator.ts:56:9&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module._compile &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1554:14&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module.m._compile &lt;span class="o">(&lt;/span>/Users/onlifecoding/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1618:23&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at node:internal/modules/cjs/loader:1706:10
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Object.require.extensions.&amp;lt;computed&amp;gt; &lt;span class="o">[&lt;/span>as .ts&lt;span class="o">]&lt;/span> &lt;span class="o">(&lt;/span>/Users/onlifecoding/.npm/_npx/1bf7c3c15bf47d04/node_modules/ts-node/src/index.ts:1621:12&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Module.load &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1289:32&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at Function._load &lt;span class="o">(&lt;/span>node:internal/modules/cjs/loader:1108:12&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> at TracingChannel.traceSync &lt;span class="o">(&lt;/span>node:diagnostics_channel:322:14&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>함수가 오류 때문에 종료되었다고 명확하게 표시되는 걸 확인할 수 있습니다.&lt;/p>
+&lt;h2 id="좀-더-확장해보기">좀 더 확장해보기&lt;/h2>
+&lt;p>데코레이터는 더 다양한 상황에서 유용하게 사용할 수 있는데요, 그 중에서 API 호출이 실패할 때 지정된 횟수만큼 재시도하도록 하는 데코레이터를 구현해보겠습니다.&lt;/p>
+&lt;h3 id="-exponential-backoff-재시도-데코레이터">📊 Exponential Backoff 재시도 데코레이터&lt;/h3>
+&lt;p>&lt;code>Exponential Backoff&lt;/code> 는 API 호출 등이 실패할 때, 지정된 횟수만큼 재시도하되, 재시도 사이에 시간 간격을 지수적으로 증가시키는 방법입니다. 뭔가 서비스가 일시적으로 오류가 발생했을 때, 복구하는 데 시간이 좀 걸릴 수 있으므로 그걸 대비해서 시간을 늘려가면서 재시도하는 거죠.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-ts" data-lang="ts">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// src/retry_decorator.ts
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 재시도 옵션 인터페이스
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">interface&lt;/span> &lt;span class="nx">RetryOptions&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">maxRetries?&lt;/span>: &lt;span class="kt">number&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 최대 재시도 횟수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">initialDelay?&lt;/span>: &lt;span class="kt">number&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// 초기 대기 시간 (밀리초)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 특정 시간동안 대기하는 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param ms - 대기 시간 (밀리초)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 대기 완료 후 프로미스 반환
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">ms&lt;/span>: &lt;span class="kt">number&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">&amp;lt;&lt;/span>&lt;span class="nt">void&lt;/span>&lt;span class="p">&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Promise&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">resolve&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="nx">setTimeout&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">resolve&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ms&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 재시도 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @param options - 재시도 옵션
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * @returns 재시도 데코레이터 함수
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">retry&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">options&lt;/span>: &lt;span class="kt">RetryOptions&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{})&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">maxRetries&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">initialDelay&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">1000&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">options&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">originalMethod&lt;/span>: &lt;span class="kt">Function&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">context&lt;/span>: &lt;span class="kt">ClassMethodDecoratorContext&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">methodName&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">context&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kt">any&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">...&lt;/span>&lt;span class="nx">args&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">[])&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">let&lt;/span> &lt;span class="nx">lastError&lt;/span>: &lt;span class="kt">any&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">attempt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">attempt&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="nx">maxRetries&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">attempt&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">originalMethod&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">args&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드의 경우 await 키워드를 사용하여 비동기 작업 완료를 기다림
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">result&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="k">typeof&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">then&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="s2">&amp;#34;function&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">await&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">catch&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">lastError&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">error&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">attempt&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">maxRetries&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Exponential backoff: 대기 시간 = initialDelay * 2^attempt
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">delay&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">initialDelay&lt;/span> &lt;span class="o">*&lt;/span> &lt;span class="nb">Math&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">pow&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">attempt&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">errorMessage&lt;/span> &lt;span class="o">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">error&lt;/span> &lt;span class="k">instanceof&lt;/span> &lt;span class="nb">Error&lt;/span> &lt;span class="o">?&lt;/span> &lt;span class="nx">error.message&lt;/span> : &lt;span class="kt">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="sb">`🔄 &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">delay&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">ms 후 재시도 &lt;/span>&lt;span class="si">${&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">attempt&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="si">}&lt;/span>&lt;span class="sb">/&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">maxRetries&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> - 오류: &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">errorMessage&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">await&lt;/span> &lt;span class="nx">sleep&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">delay&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`❌ All retries failed for &amp;#39;&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">methodName&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">&amp;#39;`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="nx">lastError&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">replacementMethod&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 예제 사용: Exponential Backoff 재시도 데코레이터
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">class&lt;/span> &lt;span class="nx">TestService&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">asyncAttemptCount&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">private&lt;/span> &lt;span class="nx">syncAttemptCount&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 비동기 메서드에 적용(마지막에 성공하는 케이스)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kd">@retry&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">maxRetries&lt;/span>: &lt;span class="kt">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">initialDelay&lt;/span>: &lt;span class="kt">500&lt;/span> &lt;span class="p">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">async&lt;/span> &lt;span class="nx">unreliableAsyncMethod() {&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">asyncAttemptCount&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="sb">`📡 비동기 메서드 테스트 (2번 실패 후 성공) - 시도 &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">asyncAttemptCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">asyncAttemptCount&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">throw&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nb">Error&lt;/span>&lt;span class="p">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="sb">`비동기 메서드 테스트 (2번 실패 후 성공) - 시도 &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">asyncAttemptCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> 회 실패`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;✅ 비동기 메서드 테스트 (2번 실패 후 성공) - 성공!&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="s2">&amp;#34;비동기 메서드 테스트 (2번 실패 후 성공) - 성공!&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 결과 테스트
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kr">async&lt;/span> &lt;span class="p">()&lt;/span> &lt;span class="o">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">service&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">TestService&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;=== 비동기 메서드 테스트 (2번 실패 후 성공) ===&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">await&lt;/span> &lt;span class="nx">service&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">unreliableAsyncMethod&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Result:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">result&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">catch&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">errorMessage&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">error&lt;/span> &lt;span class="k">instanceof&lt;/span> &lt;span class="nb">Error&lt;/span> &lt;span class="o">?&lt;/span> &lt;span class="nx">error.message&lt;/span> : &lt;span class="kt">String&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Final error:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">errorMessage&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">})();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>실행 해보면 결과는 다음과 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ npx ts-node retry_decorator.ts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">===&lt;/span> 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> &lt;span class="o">===&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">📡 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 시도 &lt;span class="m">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🔄 500ms 후 재시도 1/3 - 오류: 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 시도 &lt;span class="m">1&lt;/span> 회 실패
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">📡 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 시도 &lt;span class="m">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">🔄 1000ms 후 재시도 2/3 - 오류: 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 시도 &lt;span class="m">2&lt;/span> 회 실패
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">📡 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 시도 &lt;span class="m">3&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">✅ 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 성공!
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Result: 비동기 메서드 테스트 &lt;span class="o">(&lt;/span>2번 실패 후 성공&lt;span class="o">)&lt;/span> - 성공!
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="추가-확장-아이디어">추가 확장 아이디어&lt;/h3>
+&lt;p>이 패턴을 기반으로 다음과 같이 확장해볼 수도 있을 겁니다.&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>데코레이터&lt;/th>
+&lt;th>설명&lt;/th>
+&lt;th>적용 예시&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;strong>@Cache()&lt;/strong>&lt;/td>
+&lt;td>메서드 결과 캐싱&lt;/td>
+&lt;td>&lt;code>@Cache({ ttl: 5000 })&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>@RateLimit()&lt;/strong>&lt;/td>
+&lt;td>호출 빈도 제한&lt;/td>
+&lt;td>&lt;code>@RateLimit({ maxCalls: 10, windowMs: 60000 })&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>@Timeout()&lt;/strong>&lt;/td>
+&lt;td>실행 시간 제한&lt;/td>
+&lt;td>&lt;code>@Timeout(5000)&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>@Measure()&lt;/strong>&lt;/td>
+&lt;td>성능 측정&lt;/td>
+&lt;td>&lt;code>@Measure({ threshold: 1000 })&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>@Authorize()&lt;/strong>&lt;/td>
+&lt;td>권한 검증&lt;/td>
+&lt;td>&lt;code>@Authorize(['admin', 'user'])&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="참고자료">참고자료&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://dev.to/rajrathod/exploring-the-power-of-typescript-decorators-extending-and-modifying-code-with-ease-424l">Exploring the Power of TypeScript Decorators: Extending and Modifying Code with Ease&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.bitsrc.io/using-typescript-decorators-in-practise-d09cc1c0f8f4">Using TypeScript Decorators in Practise&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html">TypeScript 5.0&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/tc39/proposal-decorators">tc39/proposal-decorators&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.typescriptlang.org/docs/handbook/decorators.html">TypeScript Handbook - Decorators&lt;/a>&lt;/li>
+&lt;/ul></content></item></channel></rss>

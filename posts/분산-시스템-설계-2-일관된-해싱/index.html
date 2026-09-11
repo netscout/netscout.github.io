@@ -1,0 +1,724 @@
+<!doctype html><html lang=ko><head><title>분산 시스템 설계(2) - 일관된 해싱 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="해시 함수는 주어진 입력에 대해서 고정된 범위의 값으로 매핑합니다. 어떤 값이 주어져도 고정된 범위로 매핑해주기 때문에 분산 시스템에서는 이런 해시 알고리즘이 중요하게 사용됩니다. 분산 시스템에서는 들어오는 사용자의 입력을 분산된 시스템 중 어느 인스턴스에 전달해서 …"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-2-%EC%9D%BC%EA%B4%80%EB%90%9C-%ED%95%B4%EC%8B%B1/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="분산 시스템 설계(2) - 일관된 해싱"><meta property="og:description" content="해시 함수는 주어진 입력에 대해서 고정된 범위의 값으로 매핑합니다. 어떤 값이 주어져도 고정된 범위로 매핑해주기 때문에 분산 시스템에서는 이런 해시 알고리즘이 중요하게 사용됩니다. 분산 시스템에서는 들어오는 사용자의 입력을 분산된 시스템 중 어느 인스턴스에 전달해서 …"><meta property="og:url" content="https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-2-%EC%9D%BC%EA%B4%80%EB%90%9C-%ED%95%B4%EC%8B%B1/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2026-09-12 07:56:56 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-2-%EC%9D%BC%EA%B4%80%EB%90%9C-%ED%95%B4%EC%8B%B1/>분산 시스템 설계(2) - 일관된 해싱</a></h1><div class=post-meta><time class=post-date>2026-09-12</time>
+<span class=post-reading-time>20 분 (4082 단어)</span></div><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#나머지-연산-해시modulo-hash>나머지 연산 해시(modulo hash)</a><ul><li><a href=#나머지-연산-해시-구현>나머지 연산 해시 구현</a></li><li><a href=#그런데-말입니다>그런데 말입니다&mldr;</a></li></ul></li><li><a href=#링-해시ring-hash>링 해시(ring hash)</a><ul><li><a href=#링-해시-구현>링 해시 구현</a></li><li><a href=#링에-배치된-서버와-매핑하는-방법-이진-탐색>링에 배치된 서버와 매핑하는 방법: 이진 탐색</a></li><li><a href=#링-해시-분배-코드-작성>링 해시 분배 코드 작성</a></li></ul></li><li><a href=#랑데뷰-해시hrw-highest-random-weight>랑데뷰 해시(HRW, Highest Random Weight)</a><ul><li><a href=#랑데뷰-해시-구현>랑데뷰 해시 구현</a></li><li><a href=#빠르고-균등한-비-암호학적-해시>빠르고 균등한 비 암호학적 해시</a></li><li><a href=#랑데뷰-해시-분배-코드-작성>랑데뷰 해시 분배 코드 작성</a></li></ul></li><li><a href=#참고-자료>참고 자료</a></li></ul></nav></div><div class=post-content><div><p>해시 함수는 <code>주어진 입력에 대해서 고정된 범위의 값으로 매핑</code>합니다. 어떤 값이 주어져도 고정된 범위로 매핑해주기 때문에 분산 시스템에서는 이런 해시 알고리즘이 중요하게 사용됩니다. 분산 시스템에서는 들어오는 사용자의 입력을 분산된 시스템 중 어느 인스턴스에 전달해서 처리하게 할지, 그리고 인스턴스가 추가되거나 삭제될 때는 어떻게 할지 등의 문제를 해결해야 하기 때문이죠.</p><h2 id=나머지-연산-해시modulo-hash>나머지 연산 해시(modulo hash)<a href=#나머지-연산-해시modulo-hash class=hanchor arialabel=Anchor>&#8983;</a></h2><p>가장 간단한 방법은 시스템으로 들어오는 요청을 해시로 변환하고, 그 해시를 인스턴스 개수로 나눈 나머지를 이용하는 방법입니다.</p><p>사용자 10명을 서버 3대에 나누는 모습입니다. 각 사용자 ID를 해시한 뒤 3으로 나눈 나머지가 곧 서버 번호가 됩니다.</p><pre class=mermaid>flowchart LR
+    subgraph U[&#34;사용자 10명: ID를 해시한 뒤 3으로 나눈 나머지&#34;]
+        direction TB
+        u1[&#34;user-1&lt;br/&gt;hash = 0xc6c289…&lt;br/&gt;% 3 = 0&#34;]
+        u2[&#34;user-2&lt;br/&gt;hash = 0xd92b69…&lt;br/&gt;% 3 = 1&#34;]
+        u3[&#34;user-3&lt;br/&gt;hash = 0x92303a…&lt;br/&gt;% 3 = 1&#34;]
+        u4[&#34;user-4&lt;br/&gt;hash = 0xbeb218…&lt;br/&gt;% 3 = 2&#34;]
+        u5[&#34;user-5&lt;br/&gt;hash = 0x5d652c…&lt;br/&gt;% 3 = 1&#34;]
+        u6[&#34;user-6&lt;br/&gt;hash = 0x724cae…&lt;br/&gt;% 3 = 0&#34;]
+        u7[&#34;user-7&lt;br/&gt;hash = 0x920811…&lt;br/&gt;% 3 = 2&#34;]
+        u8[&#34;user-8&lt;br/&gt;hash = 0x4c485b…&lt;br/&gt;% 3 = 0&#34;]
+        u9[&#34;user-9&lt;br/&gt;hash = 0x14817f…&lt;br/&gt;% 3 = 2&#34;]
+        u10[&#34;user-10&lt;br/&gt;hash = 0xe4abd1…&lt;br/&gt;% 3 = 0&#34;]
+    end
+    subgraph S[&#34;서버 3대&#34;]
+        direction TB
+        a[&#34;server-a&lt;br/&gt;index 0 (4명)&#34;]
+        b[&#34;server-b&lt;br/&gt;index 1 (3명)&#34;]
+        c[&#34;server-c&lt;br/&gt;index 2 (3명)&#34;]
+    end
+    u1 --&gt; a
+    u6 --&gt; a
+    u8 --&gt; a
+    u10 --&gt; a
+    u2 --&gt; b
+    u3 --&gt; b
+    u5 --&gt; b
+    u4 --&gt; c
+    u7 --&gt; c
+    u9 --&gt; c
+
+    classDef sa fill:#ffcccc,stroke:#333
+    classDef sb fill:#ccffcc,stroke:#333
+    classDef sc fill:#ccccff,stroke:#333
+    class a,u1,u6,u8,u10 sa
+    class b,u2,u3,u5 sb
+    class c,u4,u7,u9 sc</pre><p>각 사용자 ID의 해시 값을 서버 개수로 나눈 나머지에 따라 서버와 매핑되고 있습니다. 같은 ID를 해시하면 항상 같은 값이 나오기 때문에 user-1은 몇 번을 물어봐도 server-a입니다.</p><h3 id=나머지-연산-해시-구현>나머지 연산 해시 구현<a href=#나머지-연산-해시-구현 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>그럼 예시 코드를 확인해볼까요? 우선 나머지 연산 해시 관련 코드입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/hash.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=nx>crypto</span> <span class=kr>from</span> <span class=s2>&#34;node:crypto&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 나머지 연산(mod) 분배 알고리즘
+</span></span></span><span class=line><span class=cl><span class=cm> * 서버 수가 바뀌면 거의 모든 키의 나머지 값이 바뀐다. 그래서 대부분의 키가 이동한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param key 유저ID 등의 키
+</span></span></span><span class=line><span class=cl><span class=cm> * @param servers 서버 목록
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 분배 대상이 되는 서버 이름
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>modHash</span><span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>index</span> <span class=o>=</span> <span class=nb>Number</span><span class=p>(</span><span class=nx>hash</span><span class=p>(</span><span class=nx>key</span><span class=p>)</span> <span class=o>%</span> <span class=nx>BigInt</span><span class=p>(</span><span class=nx>servers</span><span class=p>.</span><span class=nx>length</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>servers</span><span class=p>[</span><span class=nx>index</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 노드의 기본 crypto 모듈을 사용하여 입력 값을 해시한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param input 입력 값
+</span></span></span><span class=line><span class=cl><span class=cm> * @param algorithm 해시 알고리즘
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 해시 결과
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>hash</span><span class=p>(</span><span class=nx>input</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>algorithm</span> <span class=o>=</span> <span class=s2>&#34;sha256&#34;</span><span class=p>)</span><span class=o>:</span> <span class=kt>bigint</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 256비트 해시 생성 -&gt; 64개의 16진수 문자열(64 * 4 = 256)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>digest</span> <span class=o>=</span> <span class=nx>crypto</span><span class=p>.</span><span class=nx>createHash</span><span class=p>(</span><span class=nx>algorithm</span><span class=p>).</span><span class=nx>update</span><span class=p>(</span><span class=nx>input</span><span class=p>).</span><span class=nx>digest</span><span class=p>(</span><span class=s2>&#34;hex&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 결과로 나온 16진수 문자열을 256비트 숫자로 변환
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// number는 double 형식이므로, 정수의 범위는 -(2⁵³ - 1) ~ (2⁵³ - 1) 이므로 256bit 정수를 정확하게 표현불가.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 그래서 BigInt를 사용함. BigInt의 경우 자바스크립트 엔진에서 단일 값에 허용하는 최대 비트 수까지 할당가능.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 정수 비교를 위해 BigInt를 썼지만, sha256 해시의 결과는 항상 같은 길이의 문자열이므로 문자열을 그대로 비교해도 같은 결과를 얻을 수 있다!
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=nx>BigInt</span><span class=p>(</span><span class=sb>`0x</span><span class=si>${</span><span class=nx>digest</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><code>hash</code> 함수는 node.js에서 기본으로 제공하는 crypto 모듈을 통해 입력값의 해시를 생성합니다. 해시 알고리즘의 기본 값은 sha256으로 결과값이 항상 256비트로 구성됩니다. 그리고 나머지 연산 해시는 <code>hash</code>함수를 이용해서 특정 사용자의 식별자를 해시로 변환하고, 서버 개수로 나눈 나머지를 인덱스로 사용해서 사용자와 서버를 매핑합니다.</p><p>그리고 이어서 사용자 목록과 서버 목록을 받아서 해시 알고리즘을 적용하는 헬퍼 함수와 매핑 결과를 출력하는데 사용될 헬퍼 함수를 정의합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/hash.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 각 키를 대응하는 서버에 라우팅하여 할당
+</span></span></span><span class=line><span class=cl><span class=cm> * @param keys 유저ID 등의 키 목록
+</span></span></span><span class=line><span class=cl><span class=cm> * @param servers 서버 목록
+</span></span></span><span class=line><span class=cl><span class=cm> * @param hashFn 해시 알고리즘(링, 랑데뷰)
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>assign</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=nx>keys</span>: <span class=kt>string</span><span class=p>[],</span> 
+</span></span><span class=line><span class=cl>    <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[],</span> 
+</span></span><span class=line><span class=cl>    <span class=nx>hashFn</span><span class=o>:</span> <span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span> <span class=o>=&gt;</span> <span class=kt>string</span><span class=p>)</span><span class=o>:</span> <span class=nx>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>result</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;</span> <span class=o>=</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>key</span> <span class=k>of</span> <span class=nx>keys</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>result</span><span class=p>[</span><span class=nx>key</span><span class=p>]</span> <span class=o>=</span> <span class=nx>hashFn</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>servers</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 각 서버별 분배 결과를 테이블로 출력.
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>result</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>distribution</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>number</span><span class=p>&gt;</span> <span class=o>=</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>server</span> <span class=k>of</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>values</span><span class=p>(</span><span class=nx>result</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>distribution</span><span class=p>[</span><span class=nx>server</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=nx>distribution</span><span class=p>[</span><span class=nx>server</span><span class=p>]</span> <span class=o>??</span> <span class=mi>0</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>table</span><span class=p>(</span><span class=nx>distribution</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 마지막으로 사용자와 서버를 선언하고, 매핑을 진행하는 코드를 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/distribution.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=p>{</span> <span class=nx>assign</span><span class=p>,</span> <span class=nx>modHash</span><span class=p>,</span> <span class=nx>printDistribution</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./hash.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>users</span> <span class=o>=</span> <span class=nb>Array</span><span class=p>.</span><span class=kr>from</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=nx>length</span>: <span class=kt>10</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>(</span><span class=nx>_</span><span class=p>,</span> <span class=nx>i</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=sb>`user-</span><span class=si>${</span><span class=nb>String</span><span class=p>(</span><span class=nx>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span><span class=si>}</span><span class=sb>`</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 해시 알고리즘과 각 해시 알고리즘 실행을 위한 hashFn 구성
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>algorithms</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=err>(</span><span class=na>servers</span><span class=err>:</span> <span class=na>string</span><span class=err>[])</span> <span class=err>=</span><span class=p>&gt;</span> <span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span> <span class=o>=&gt;</span> <span class=kt>string</span><span class=o>&gt;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;mod&#34;</span><span class=o>:</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=nx>modHash</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 각 해시 알고리즘 별로 실행하여 결과 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>name</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>]</span> <span class=k>of</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>entries</span><span class=p>(</span><span class=nx>algorithms</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n===== </span><span class=si>${</span><span class=nx>name</span><span class=si>}</span><span class=sb> =====`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;--- 서버 3대 ---&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>servers</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;server-a&#34;</span><span class=p>,</span> <span class=s2>&#34;server-b&#34;</span><span class=p>,</span> <span class=s2>&#34;server-c&#34;</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>before</span> <span class=o>=</span> <span class=nx>assign</span><span class=p>(</span><span class=nx>users</span><span class=p>,</span> <span class=nx>servers</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>(</span><span class=nx>servers</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>before</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>사용자 10명과 서버 3대를 선언하고, 나머지 해시 알고리즘을 통해 매핑을 진행하고 결과를 확인하는 순서로 진행됩니다. 결과를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/distribution.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> <span class=nv>mod</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>4</span>      │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>3</span>      │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>3</span>      │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span></code></pre></div><p>4:3:3 이라면 얼추 균등하게 요청이 분배되었네요. 유저를 1000명까지 늘려볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/distribution.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> <span class=nv>mod</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>339</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>347</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>314</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span></code></pre></div><p>역시나 비슷한 결과가 나옵니다.</p><h3 id=그런데-말입니다>그런데 말입니다&mldr;<a href=#그런데-말입니다 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>그러면 여기서 한 가지 의문이 생깁니다. <code>얼추 비슷한데 그냥 나머지 연산 해시 이거면 다 되는 거 아닌가?</code> 하고 말이죠. 그러면 서버가 추가되거나 삭제될 때도 잘 동작하는지 추가로 확인해 보겠습니다.</p><p>우선 src/hash.ts에 다음 함수를 추가합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/hash.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 서버 목록에 변동이 발생하여 사용자를 재분배한 경우, 재분배로 인해 발생한 이동을 확인한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param previous 이전 분배 결과
+</span></span></span><span class=line><span class=cl><span class=cm> * @param current 재분배 결과
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 재분배 결과 발생한 이동
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>compare</span><span class=p>(</span><span class=nx>previous</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;,</span> <span class=nx>current</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>let</span> <span class=nx>moved</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>key</span> <span class=k>of</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>keys</span><span class=p>(</span><span class=nx>previous</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=nx>previous</span><span class=p>[</span><span class=nx>key</span><span class=p>]</span> <span class=o>!==</span> <span class=nx>current</span><span class=p>[</span><span class=nx>key</span><span class=p>])</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>moved</span><span class=o>++</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>moved</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 다음과 같이 src/distribution.ts를 수정합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>//src/distribution.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>...</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 각 해시 알고리즘 별로 실행하여 결과 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>name</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>]</span> <span class=k>of</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>entries</span><span class=p>(</span><span class=nx>algorithms</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n===== </span><span class=si>${</span><span class=nx>name</span><span class=si>}</span><span class=sb> =====`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;--- 서버 3대 ---&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>servers</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;server-a&#34;</span><span class=p>,</span> <span class=s2>&#34;server-b&#34;</span><span class=p>,</span> <span class=s2>&#34;server-c&#34;</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>before</span> <span class=o>=</span> <span class=nx>assign</span><span class=p>(</span><span class=nx>users</span><span class=p>,</span> <span class=nx>servers</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>(</span><span class=nx>servers</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>before</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;--- server-d 추가 ---&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>servers</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=s2>&#34;server-d&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>after</span> <span class=o>=</span> <span class=nx>assign</span><span class=p>(</span><span class=nx>users</span><span class=p>,</span> <span class=nx>servers</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>(</span><span class=nx>servers</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>after</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`이동된 사용자 수: </span><span class=si>${</span><span class=nx>compare</span><span class=p>(</span><span class=nx>before</span><span class=p>,</span> <span class=nx>after</span><span class=p>)</span><span class=si>}</span><span class=sb> / </span><span class=si>${</span><span class=nx>users</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>서버를 한 대 추가하고 재분배를 진행해서 얼마나 많은 사용자가 재분배로 인해 다른 서버로 이동되었는지 확인하는 코드가 추가되었습니다. 실행해서 결과를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/distribution.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> <span class=nv>mod</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>339</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>347</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>314</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>244</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>242</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>259</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>255</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>756</span> / <span class=m>1000</span>
+</span></span></code></pre></div><p>서버가 한 대 추가되어도 사용자의 분배는 거의 1/4에 가깝게 진행됩니다. 하지만, 이동된 사용자 수는 1/4이 아니라 3/4죠!</p><p>서버가 상태를 가지지 않는(stateless) 웹 서버라면 굳이 문제될 건 없어 보입니다. nginx도 기본값으로 순차적으로 돌아가며 요청을 분배하는 라운드 로빈(round-robin) 방식을 사용하고, node.js 프로세스를 관리할 때 많이 사용하는 PM2 역시 라운드 로빈을 사용합니다.</p><p>그런데 로컬 캐시와 같이 상태를 가지는 연결이라면, 75%의 사용자가 이동되는 문제는 매우 심각한 문제가 아닐까요?</p><blockquote><p>물론 Redis같은 전역 캐시를 사용해도 됩니다. 다만, 대규모 서비스로 갈수록 단순히 Redis만 사용하기 보다는 메모리 기반 로컬 캐시와 Redis를 조합해서 사용하는 경향이 있습니다. 로컬 캐시에서 응답할 수 있다면 Redis와 네트워크 통신에 걸리는 지연시간을 줄일 수 있기 때문이죠. DB가 업데이트 되면, pub/sub등으로 로컬 캐시를 무효화하고 다시 로드하도록 하는 등의 방식을 사용합니다.</p></blockquote><h2 id=링-해시ring-hash>링 해시(ring hash)<a href=#링-해시ring-hash class=hanchor arialabel=Anchor>&#8983;</a></h2><p>그래서 등장한 게 일관성 있게 요청을 분배할 수 있도록 해주는 링 해시 알고리즘입니다.</p><p>사용자가 매핑될 수 있는 모든 해시 지점을 하나의 링(원)으로 구성한 뒤에, 그 위에 서버 인스턴스를 해시하여 배치합니다.</p><p>SHA256을 사용하는 경우 해시 값은 0부터 2²⁵⁶ - 1까지의 아주 큰 숫자인데요, 이후 표시된 도식에서는 해시 값을 0에서 100 사이 눈금으로 줄여서 표시합니다(해시 값 ÷ 2²⁵⁶ × 100). 매핑 가능한 지점들을 하나의 링으로 구성하기 때문에 눈금 100은 다시 0으로 이어집니다.</p><p>그러면 링 위에 서버 3대를 우선 배치해 볼까요?</p><pre class=mermaid>graph LR
+    zero((&#34;0&lt;br/&gt;(= 100)&#34;))
+    b[&#34;server-b&lt;br/&gt;위치 40.8&#34;]
+    c[&#34;server-c&lt;br/&gt;위치 76.5&#34;]
+    a[&#34;server-a&lt;br/&gt;위치 83.3&#34;]
+
+    zero --&gt;|&#34;시계 방향&#34;| b --&gt; c --&gt; a --&gt;|&#34;100을 지나면 다시 0&#34;| zero
+
+    style zero fill:#f0f0f0,stroke:#333
+    style a fill:#ffcccc,stroke:#333
+    style b fill:#ccffcc,stroke:#333
+    style c fill:#ccccff,stroke:#333</pre><p>서버 이름을 해시하면 각 서버는 링 위의 한 점이 됩니다. server-b는 40.8, server-c는 76.5, server-a는 83.3에 놓였습니다.</p><blockquote><p>눈치채신 분도 있겠지만, 각 서버는 1/3 지점에 정확하게 매핑되지 않았습니다. 그렇기 때문에 server-b가 가장 많은 요청을, server-a가 가장 적은 요청을 받게 됩니다. 이걸 어떻게 해결할지 나중에 다시 이야기 하겠습니다!</p></blockquote><p>사용자 A를 서버에 매핑해야 할 때, A를 해시로 변환해서 원 위의 한 점에 놓고 시계 방향으로 가장 가까운 서버를 찾아서 사용자와 서버를 매핑합니다.</p><blockquote><p>링 해시 도식에서는 시작점(0)이 아래쪽에 위치하고 시계 방향으로 이동해서 다시 시작점(100)으로 이동합니다!</p></blockquote><pre class=mermaid>graph BT
+    zero((&#34;0&lt;br/&gt;(= 100)&#34;))
+    u7([&#34;user-7&lt;br/&gt;3.5&#34;])
+    u9([&#34;user-9&lt;br/&gt;8.0&#34;])
+    u8([&#34;user-8&lt;br/&gt;29.7&#34;])
+    u5([&#34;user-5&lt;br/&gt;36.4&#34;])
+    b[&#34;server-b&lt;br/&gt;40.8&#34;]
+    u6([&#34;user-6&lt;br/&gt;44.6&#34;])
+    u3([&#34;user-3&lt;br/&gt;57.1&#34;])
+    u4([&#34;user-4&lt;br/&gt;74.4&#34;])
+    c[&#34;server-c&lt;br/&gt;76.5&#34;]
+    u1([&#34;user-1&lt;br/&gt;77.6&#34;])
+    a[&#34;server-a&lt;br/&gt;83.3&#34;]
+    u2([&#34;user-2&lt;br/&gt;84.8&#34;])
+    u10([&#34;user-10&lt;br/&gt;89.3&#34;])
+
+    zero --&gt; u7 --&gt; u9 --&gt; u8 --&gt; u5 --&gt; b --&gt; u6 --&gt; u3 --&gt; u4 --&gt; c --&gt; u1 --&gt; a --&gt; u2 --&gt; u10 --&gt;|&#34;다시 0으로&#34;| zero
+    u1 -.-&gt;|&#34;시계 방향으로 처음 만나는 서버&#34;| a
+
+    subgraph L[&#34;범례: 사용자 색 = 매핑된 서버&#34;]
+        direction LR
+        la[&#34;server-a 담당 1명&#34;]
+        lb[&#34;server-b 담당 6명&#34;]
+        lc[&#34;server-c 담당 3명&#34;]
+    end
+
+    classDef sa fill:#ffcccc,stroke:#333
+    classDef sb fill:#ccffcc,stroke:#333
+    classDef sc fill:#ccccff,stroke:#333
+    class a,la,u1 sa
+    class b,lb,u2,u5,u7,u8,u9,u10 sb
+    class c,lc,u3,u4,u6 sc
+    style zero fill:#f0f0f0,stroke:#333
+    style u1 stroke-width:3px</pre><p>user-1을 해시한 값이 77.6이기 때문에 시계 방향으로 처음 만나는 서버는 83.3의 server-a입니다. 같은 규칙으로 10명을 전부 배치하면 server-b 6명, server-c 3명, server-a 1명이 됩니다. 83.3을 지나 0으로 돌아와서 40.8까지 이어지는 긴 구간이 전부 server-b 몫이기 때문이죠.</p><p>그럴듯해 보이지만 몇 가지 단점이 있습니다.</p><ul><li>링 위에 각 서버가 균등하게 배치되지 않아서 특정 서버에게 더 많은 사용자가 매핑된다.</li><li>서버 하나가 종료되어 사라지는 경우, 그 다음 시계 방향에 위치한 서버가 모든 부담을 떠안는다.</li></ul><p>그래서 이런 단점을 해소하기 위해서 각 서버 인스턴스의 가상 노드를 N개 더 만들어서 링 위에 배치합니다.</p><pre class=mermaid>graph LR
+    subgraph V1[&#34;가상 노드 1개: 담당 구간 a 6.8% / b 57.5% / c 35.7%&#34;]
+        direction BT
+        z1((&#34;0&#34;))
+        b0[&#34;server-b&lt;br/&gt;40.8&#34;]
+        c0[&#34;server-c&lt;br/&gt;76.5&#34;]
+        a0[&#34;server-a&lt;br/&gt;83.3&#34;]
+        z1 --&gt; b0 --&gt; c0 --&gt; a0 --&gt; z1
+    end
+    subgraph V2[&#34;가상 노드 2개: 담당 구간 a 20.1% / b 41.1% / c 38.8%&#34;]
+        direction BT
+        z2((&#34;0&#34;))
+        a1[&#34;server-a#1&lt;br/&gt;3.4&#34;]
+        c1[&#34;server-c#1&lt;br/&gt;6.5&#34;]
+        b2[&#34;server-b#0&lt;br/&gt;40.8&#34;]
+        c2[&#34;server-c#0&lt;br/&gt;76.5&#34;]
+        a2[&#34;server-a#0&lt;br/&gt;83.3&#34;]
+        b1[&#34;server-b#1&lt;br/&gt;90.1&#34;]
+        z2 --&gt; a1 --&gt; c1 --&gt; b2 --&gt; c2 --&gt; a2 --&gt; b1 --&gt; z2
+    end
+    V1 ~~~ V2
+
+    classDef sa fill:#ffcccc,stroke:#333
+    classDef sb fill:#ccffcc,stroke:#333
+    classDef sc fill:#ccccff,stroke:#333
+    class a0,a1,a2 sa
+    class b0,b1,b2 sb
+    class c0,c1,c2 sc
+    style z1 fill:#f0f0f0,stroke:#333
+    style z2 fill:#f0f0f0,stroke:#333</pre><p>도식의 왼쪽은 가상 노드가 1개인 경우, 그러니까 가상노드를 사용하지 않는 경우와 똑같습니다. 오른쪽은 각 서버 별로 가상 노드를 2개씩 배치하는 예시입니다. 각 점들의 배치가 조금 더 촘촘해졌는데요. 가상 노드가 없을 때 가장 큰 문제였던 server-a와 server-b의 구간에 다른 가상 노드가 몇 개 더 배치되면서 분배가 비교적 더 균등해지게 된 거죠.</p><p>이렇게 하면 초기 서버 배치의 불평등을 완화할 수 있고, 서버의 추가/삭제에도 비교적 유연하게 대응할 수 있습니다. 그러면 링 알고리즘을 구현해봅시다!</p><h3 id=링-해시-구현>링 해시 구현<a href=#링-해시-구현 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>다음과 같이 코드를 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/ring.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=p>{</span> <span class=nx>hash</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./hash.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 해시 링 위의 노드 위치
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kr>type</span> <span class=nx>RingPoint</span> <span class=o>=</span> <span class=p>{</span> 
+</span></span><span class=line><span class=cl>    <span class=nx>point</span>: <span class=kt>bigint</span><span class=p>;</span> 
+</span></span><span class=line><span class=cl>    <span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 노드가 소속된 서버
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span>
+</span></span><span class=line><span class=cl>    <span class=nx>server</span>: <span class=kt>string</span> 
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 해시 링(consistent hashing)을 만든다.
+</span></span></span><span class=line><span class=cl><span class=cm> * 서버 이름에 번호를 붙여 해시한 값이 링 위의 점이 되고, 서버 하나가 점을 vnodes개씩 가지도록 한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * 서버 목록이 바뀔 때마다 링을 새로 만들어야 한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param servers 서버 목록
+</span></span></span><span class=line><span class=cl><span class=cm> * @param vnodes 서버 하나가 가지는 지점(virtual node) 수. 기본값 100.
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns point 오름차순으로 정렬된 링. ringHash에 넘겨 재사용한다.
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>makeRing</span><span class=p>(</span><span class=nx>servers</span>: <span class=kt>string</span><span class=p>[],</span> <span class=nx>vnodes</span> <span class=o>=</span> <span class=mi>100</span><span class=p>)</span><span class=o>:</span> <span class=nx>RingPoint</span><span class=p>[]</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>ring</span>: <span class=kt>RingPoint</span><span class=p>[]</span> <span class=o>=</span> <span class=p>[];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>server</span> <span class=k>of</span> <span class=nx>servers</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=o>&lt;</span> <span class=nx>vnodes</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// 가상노드의 개수만큼 해시를 추가
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>ring</span><span class=p>.</span><span class=nx>push</span><span class=p>({</span> <span class=nx>point</span>: <span class=kt>hash</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>server</span><span class=si>}</span><span class=sb>#</span><span class=si>${</span><span class=nx>i</span><span class=si>}</span><span class=sb>`</span><span class=p>),</span> <span class=nx>server</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 이진 탐색을 위해 해시 위치를 기준으로 오름차순 정렬
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=nx>ring</span><span class=p>.</span><span class=nx>sort</span><span class=p>((</span><span class=nx>a</span><span class=p>,</span> <span class=nx>b</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>(</span><span class=nx>a</span><span class=p>.</span><span class=nx>point</span> <span class=o>&lt;</span> <span class=nx>b</span><span class=p>.</span><span class=nx>point</span> <span class=o>?</span> <span class=o>-</span><span class=nx>1</span> : <span class=kt>a.point</span> <span class=o>&gt;</span> <span class=nx>b</span><span class=p>.</span><span class=nx>point</span> <span class=o>?</span> <span class=nx>1</span> : <span class=kt>0</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 해시 링(consistent hashing) 분배 알고리즘
+</span></span></span><span class=line><span class=cl><span class=cm> * 키를 해시한 지점에서 시계 방향으로 처음 만나는 서버를 고른다.
+</span></span></span><span class=line><span class=cl><span class=cm> * 서버가 추가되거나 제거되면 그 서버가 차지한 구간의 키만 이동한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param key 유저ID 등의 키
+</span></span></span><span class=line><span class=cl><span class=cm> * @param ring makeRing으로 만든 링
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 분배 대상이 되는 서버 이름
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>ringHash</span><span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>ring</span>: <span class=kt>RingPoint</span><span class=p>[])</span><span class=o>:</span> <span class=kt>string</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 키를 해시 링 위의 한 점으로 변환
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>keyPoint</span> <span class=o>=</span> <span class=nx>hash</span><span class=p>(</span><span class=nx>key</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 이진 탐색을 위한 양쪽 끝 경계. keyPoint보다 크거나 같은 첫 지점을 찾는다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>let</span> <span class=nx>low</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kd>let</span> <span class=nx>high</span> <span class=o>=</span> <span class=nx>ring</span><span class=p>.</span><span class=nx>length</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 탐색 구간이 비게 되면 탐색 종료
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>while</span> <span class=p>(</span><span class=nx>low</span> <span class=o>&lt;</span> <span class=nx>high</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 탐색 중간 지점 계산
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kr>const</span> <span class=nx>mid</span> <span class=o>=</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>floor</span><span class=p>((</span><span class=nx>low</span> <span class=o>+</span> <span class=nx>high</span><span class=p>)</span> <span class=o>/</span> <span class=mi>2</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 중간 지점의 값이 keyPoint보다 작으면, mid이전에는 찾는 값이 없으므로 탐색 범위를 mid+1~high로 재설정
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=p>(</span><span class=nx>ring</span><span class=p>[</span><span class=nx>mid</span><span class=p>].</span><span class=nx>point</span> <span class=o>&lt;</span> <span class=nx>keyPoint</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>low</span> <span class=o>=</span> <span class=nx>mid</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span> <span class=c1>// 중간 지점의 값이 keyPoint보다 더 크면, mid이전에 찾는 값이 있을 수도 있으므로, 탐색 범위를 low~mid로 재설정
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>high</span> <span class=o>=</span> <span class=nx>mid</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 마지막 지점보다 큰 keyPoint의 경우 low가 최대 ring.length까지 갈 수 있다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 그런데 ring[ring.length]는 존재하지 않으므로, % 연산으로 처음부터 순환하도록 한다.(wrap-around)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=nx>ring</span><span class=p>[</span><span class=nx>low</span> <span class=o>%</span> <span class=nx>ring</span><span class=p>.</span><span class=nx>length</span><span class=p>].</span><span class=nx>server</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>makeRing 함수를 통해 가상 노드 개수만큼 각 서버별로 가상노드를 생성하고, 각 가상노드의 해시 값을 링 위에 배치합니다.</p><p>그리고 그렇게 만들어진 해시 링을 사용해서 각 사용자의 요청을 시계 방향의 가장 가까운(사용자 요청의 해시 값보다 크거나 같은) 노드에 매핑하는 거죠.</p><h3 id=링에-배치된-서버와-매핑하는-방법-이진-탐색>링에 배치된 서버와 매핑하는 방법: 이진 탐색<a href=#링에-배치된-서버와-매핑하는-방법-이진-탐색 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>각 사용자의 요청을 매핑하기 위해서 이진 탐색을 사용하고 있는데요, 이 과정을 좀 더 자세히 알아보겠습니다.</p><p>가상 노드 2개짜리 링(지점 6개)에서 user-1(77.6)의 서버를 찾는 과정입니다. 정렬된 배열에서 77.6보다 크거나 같은 첫 지점을 찾습니다. low는 파란 테두리, high는 보라색 점선 테두리, mid는 노란색 칸입니다. high는 마지막 칸 다음, 즉 배열 끝(6)을 가리킬 수 있어서 #6 칸을 하나 더 그렸습니다. 회색은 탐색에서 빠진 칸입니다.</p><pre class=mermaid>graph TD
+    subgraph LG[&#34;범례&#34;]
+        direction LR
+        lg1[&#34;low&lt;br/&gt;탐색 범위의 시작 (포함)&#34;] ~~~ lg2[&#34;mid&lt;br/&gt;지금 비교하는 칸&#34;] ~~~ lg3[&#34;high&lt;br/&gt;탐색 범위의 끝 (미포함)&#34;] ~~~ lg0[&#34;&amp;nbsp;&lt;br/&gt;탐색 범위 안의 칸&#34;] ~~~ lg4[&#34;&amp;nbsp;&lt;br/&gt;탐색에서 빠진 칸&#34;]
+    end
+    subgraph S1[&#34;1단계: mid=3의 76.5 &lt; 77.6 이므로 low = mid + 1 = 4&#34;]
+        direction LR
+        s1_0[&#34;low&lt;br/&gt;#0 server-a&lt;br/&gt;3.4&#34;] ~~~ s1_1[&#34;&amp;nbsp;&lt;br/&gt;#1 server-c&lt;br/&gt;6.5&#34;] ~~~ s1_2[&#34;&amp;nbsp;&lt;br/&gt;#2 server-b&lt;br/&gt;40.8&#34;] ~~~ s1_3[&#34;mid&lt;br/&gt;#3 server-c&lt;br/&gt;76.5&#34;] ~~~ s1_4[&#34;&amp;nbsp;&lt;br/&gt;#4 server-a&lt;br/&gt;83.3&#34;] ~~~ s1_5[&#34;&amp;nbsp;&lt;br/&gt;#5 server-b&lt;br/&gt;90.1&#34;] ~~~ s1_6[&#34;high&lt;br/&gt;#6&lt;br/&gt;(배열 끝)&#34;]
+    end
+    subgraph S2[&#34;2단계: mid=5의 90.1 ≥ 77.6 이므로 high = mid = 5&#34;]
+        direction LR
+        s2_0[&#34;&amp;nbsp;&lt;br/&gt;#0 server-a&lt;br/&gt;3.4&#34;] ~~~ s2_1[&#34;&amp;nbsp;&lt;br/&gt;#1 server-c&lt;br/&gt;6.5&#34;] ~~~ s2_2[&#34;&amp;nbsp;&lt;br/&gt;#2 server-b&lt;br/&gt;40.8&#34;] ~~~ s2_3[&#34;&amp;nbsp;&lt;br/&gt;#3 server-c&lt;br/&gt;76.5&#34;] ~~~ s2_4[&#34;low&lt;br/&gt;#4 server-a&lt;br/&gt;83.3&#34;] ~~~ s2_5[&#34;mid&lt;br/&gt;#5 server-b&lt;br/&gt;90.1&#34;] ~~~ s2_6[&#34;high&lt;br/&gt;#6&lt;br/&gt;(배열 끝)&#34;]
+    end
+    subgraph S3[&#34;3단계: mid=4의 83.3 ≥ 77.6 이므로 high = mid = 4&#34;]
+        direction LR
+        s3_0[&#34;&amp;nbsp;&lt;br/&gt;#0 server-a&lt;br/&gt;3.4&#34;] ~~~ s3_1[&#34;&amp;nbsp;&lt;br/&gt;#1 server-c&lt;br/&gt;6.5&#34;] ~~~ s3_2[&#34;&amp;nbsp;&lt;br/&gt;#2 server-b&lt;br/&gt;40.8&#34;] ~~~ s3_3[&#34;&amp;nbsp;&lt;br/&gt;#3 server-c&lt;br/&gt;76.5&#34;] ~~~ s3_4[&#34;low, mid&lt;br/&gt;#4 server-a&lt;br/&gt;83.3&#34;] ~~~ s3_5[&#34;high&lt;br/&gt;#5 server-b&lt;br/&gt;90.1&#34;] ~~~ s3_6[&#34;&amp;nbsp;&lt;br/&gt;#6&lt;br/&gt;(배열 끝)&#34;]
+    end
+    subgraph S4[&#34;종료: low = high = 4 이므로 ring[4]의 server-a 선택&#34;]
+        direction LR
+        s4_0[&#34;&amp;nbsp;&lt;br/&gt;#0 server-a&lt;br/&gt;3.4&#34;] ~~~ s4_1[&#34;&amp;nbsp;&lt;br/&gt;#1 server-c&lt;br/&gt;6.5&#34;] ~~~ s4_2[&#34;&amp;nbsp;&lt;br/&gt;#2 server-b&lt;br/&gt;40.8&#34;] ~~~ s4_3[&#34;&amp;nbsp;&lt;br/&gt;#3 server-c&lt;br/&gt;76.5&#34;] ~~~ s4_4[&#34;low, high&lt;br/&gt;#4 server-a&lt;br/&gt;83.3&#34;] ~~~ s4_5[&#34;&amp;nbsp;&lt;br/&gt;#5 server-b&lt;br/&gt;90.1&#34;] ~~~ s4_6[&#34;&amp;nbsp;&lt;br/&gt;#6&lt;br/&gt;(배열 끝)&#34;]
+    end
+    LG ~~~ S1
+    S1 --&gt; S2 --&gt; S3 --&gt; S4
+
+    classDef out fill:#e0e0e0,stroke:#999,color:#888
+    classDef low fill:#fff,stroke:#1f6fd6,stroke-width:3px
+    classDef high fill:#fff,stroke:#8a2be2,stroke-width:3px,stroke-dasharray:6 3
+    classDef mid fill:#ffffcc,stroke:#333,stroke-width:3px
+    classDef found fill:#ffcccc,stroke:#333,stroke-width:3px
+    classDef past fill:#fafafa,stroke:#bbb,stroke-dasharray:4 3,color:#888
+    class lg1 low
+    class lg2 mid
+    class lg3 high
+    class lg4 out
+    class s1_0 low
+    class s1_3 mid
+    class s1_6 high
+    class s2_0,s2_1,s2_2,s2_3 out
+    class s2_4 low
+    class s2_5 mid
+    class s2_6 high
+    class s3_0,s3_1,s3_2,s3_3 out
+    class s3_4 mid
+    class s3_5 high
+    class s3_6 past
+    class s4_0,s4_1,s4_2,s4_3,s4_5 out
+    class s4_4 found
+    class s4_6 past</pre><p>세 번 비교하고 index 4의 server-a에 도착했습니다. 지점이 600개(서버 6대 × 가상 노드 100개)라도 10번이면 끝납니다. 만약 키가 마지막 지점 90.1보다 크면 low가 6까지 가는데, 6 % 6 = 0이므로 처음 지점인 server-a#1로 돌아갑니다. 이게 코드 마지막 줄의 wrap-around입니다.</p><h3 id=링-해시-분배-코드-작성>링 해시 분배 코드 작성<a href=#링-해시-분배-코드-작성 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>이제 링 해시를 사용해서 분배를 진행하는 코드를 작성할 차례입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/distribution.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=p>{</span> <span class=nx>makeRing</span><span class=p>,</span> <span class=nx>ringHash</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./ring.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>...</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 해시 알고리즘과 각 해시 알고리즘 실행을 위한 hashFn 구성
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>algorithms</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=err>(</span><span class=na>servers</span><span class=err>:</span> <span class=na>string</span><span class=err>[])</span> <span class=err>=</span><span class=p>&gt;</span> <span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span> <span class=o>=&gt;</span> <span class=kt>string</span><span class=o>&gt;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;mod&#34;</span><span class=o>:</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=nx>modHash</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;ring hash&#34;</span><span class=o>:</span> <span class=p>(</span><span class=nx>servers</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kr>const</span> <span class=nx>ring</span> <span class=o>=</span> <span class=nx>makeRing</span><span class=p>(</span><span class=nx>servers</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>(</span><span class=nx>key</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>ringHash</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 각 해시 알고리즘 별로 실행하여 결과 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>name</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>]</span> <span class=k>of</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>entries</span><span class=p>(</span><span class=nx>algorithms</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n===== </span><span class=si>${</span><span class=nx>name</span><span class=si>}</span><span class=sb> =====`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;--- 서버 3대 ---&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>servers</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;server-a&#34;</span><span class=p>,</span> <span class=s2>&#34;server-b&#34;</span><span class=p>,</span> <span class=s2>&#34;server-c&#34;</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>before</span> <span class=o>=</span> <span class=nx>assign</span><span class=p>(</span><span class=nx>users</span><span class=p>,</span> <span class=nx>servers</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>(</span><span class=nx>servers</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>before</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;--- server-d 추가 ---&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>servers</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=s2>&#34;server-d&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>after</span> <span class=o>=</span> <span class=nx>assign</span><span class=p>(</span><span class=nx>users</span><span class=p>,</span> <span class=nx>servers</span><span class=p>,</span> <span class=nx>makeHashFn</span><span class=p>(</span><span class=nx>servers</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>printDistribution</span><span class=p>(</span><span class=nx>after</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`이동된 사용자 수: </span><span class=si>${</span><span class=nx>compare</span><span class=p>(</span><span class=nx>before</span><span class=p>,</span> <span class=nx>after</span><span class=p>)</span><span class=si>}</span><span class=sb> / </span><span class=si>${</span><span class=nx>users</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>링 해시 알고리즘은 분배를 진행하려면 미리 링을 구성해야 합니다. 그래서 링 해시를 진행하기 전에 makeRing 함수를 통해서 링을 먼저 만들고, 그 링을 사용하는 해시 함수를 리턴합니다.</p><p>실행 결과를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/distribution.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> <span class=nv>mod</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>339</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>347</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>314</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>244</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>242</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>259</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>255</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>756</span> / <span class=nv>1000</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> ring <span class=nb>hash</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>317</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>316</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>367</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>215</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>268</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>280</span>    │
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>237</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>237</span> / <span class=m>1000</span>
+</span></span></code></pre></div><p>링 해시는 나머지 연산 해시 보다 노드 변경에 훨씬 유연하게 대응하는 걸 볼 수 있습니다. 링 위에 새로운 점이 추가되는 거니까, 예전 노드가 더 가까운 요청들은 계속 기존의 노드와 매핑이 되기 때문에 그렇습니다.</p><p>앞의 가상 노드 1개짜리 링에 server-d를 넣어 보겠습니다. server-d는 8.4에 놓입니다.</p><pre class=mermaid>graph BT
+    zero((&#34;0&lt;br/&gt;(= 100)&#34;))
+    u7([&#34;user-7&lt;br/&gt;3.5&lt;br/&gt;b → d 이동&#34;])
+    u9([&#34;user-9&lt;br/&gt;8.0&lt;br/&gt;b → d 이동&#34;])
+    d[&#34;server-d&lt;br/&gt;8.4 (새 서버)&#34;]
+    u8([&#34;user-8&lt;br/&gt;29.7&#34;])
+    u5([&#34;user-5&lt;br/&gt;36.4&#34;])
+    b[&#34;server-b&lt;br/&gt;40.8&#34;]
+    u6([&#34;user-6&lt;br/&gt;44.6&#34;])
+    u3([&#34;user-3&lt;br/&gt;57.1&#34;])
+    u4([&#34;user-4&lt;br/&gt;74.4&#34;])
+    c[&#34;server-c&lt;br/&gt;76.5&#34;]
+    u1([&#34;user-1&lt;br/&gt;77.6&#34;])
+    a[&#34;server-a&lt;br/&gt;83.3&#34;]
+    u2([&#34;user-2&lt;br/&gt;84.8&lt;br/&gt;b → d 이동&#34;])
+    u10([&#34;user-10&lt;br/&gt;89.3&lt;br/&gt;b → d 이동&#34;])
+
+    zero --&gt; u7 --&gt; u9 --&gt; d --&gt; u8 --&gt; u5 --&gt; b --&gt; u6 --&gt; u3 --&gt; u4 --&gt; c --&gt; u1 --&gt; a --&gt; u2 --&gt; u10 --&gt;|&#34;다시 0으로&#34;| zero
+
+    subgraph L[&#34;범례: 사용자 색 = 매핑된 서버&#34;]
+        direction LR
+        la[&#34;server-a 1명&#34;]
+        lb[&#34;server-b 2명&#34;]
+        lc[&#34;server-c 3명&#34;]
+        ld[&#34;server-d 4명 (전부 b에서 이동)&#34;]
+    end
+
+    classDef sa fill:#ffcccc,stroke:#333
+    classDef sb fill:#ccffcc,stroke:#333
+    classDef sc fill:#ccccff,stroke:#333
+    classDef sd fill:#ffdca8,stroke:#e07000,stroke-width:3px
+    class a,la,u1 sa
+    class b,lb,u5,u8 sb
+    class c,lc,u3,u4,u6 sc
+    class d,ld,u2,u7,u9,u10 sd
+    style zero fill:#f0f0f0,stroke:#333</pre><p>server-d가 8.4에 들어오면 83.3에서 8.4까지의 구간이 server-d 몫이 됩니다. 그 구간에 있던 user-2, user-10, user-7, user-9 네 명이 server-b에서 server-d로 옮겨 가고, 나머지 여섯 명은 그대로인 거죠. 위 실행 결과에서 이동된 사용자 수 237과 server-d에 배정된 수 237이 정확히 같은 것도 같은 이유인데요, 새 서버로 가야 할 사용자만 움직이고 나머지는 한 명도 안 움직이는 거죠.</p><h2 id=랑데뷰-해시hrw-highest-random-weight>랑데뷰 해시(HRW, Highest Random Weight)<a href=#랑데뷰-해시hrw-highest-random-weight class=hanchor arialabel=Anchor>&#8983;</a></h2><p>랑데뷰 해시는 링 해시보다 훨씬 간결하면서도 링 해시와 같은 수준으로 요청을 분배합니다. 사용자의 요청이 들어올 때마다 요청에 대해 가장 해시 점수가 높은 서버를 골라서 매핑시킵니다. 링을 미리 만들 필요도 없고, 서버가 추가되거나 삭제되어도 링을 재구성할 필요 없이 각 요청에 대한 각 서버의 해시 점수만 비교하면 됩니다.</p><p>user-1을 서버에 매핑하는 과정입니다. 점수는 링 도식과 같은 방식으로 0에서 100 사이 눈금으로 줄여서 표시했습니다(xxHash 값 ÷ 2⁶⁴ × 100).</p><pre class=mermaid>flowchart LR
+    k[&#34;user-1&#34;]
+    subgraph S3[&#34;서버 3대: 사용자와 서버를 짝지어 점수 계산&#34;]
+        direction TB
+        sa[&#34;xxHash(user-1:server-a)&lt;br/&gt;= 37.1&#34;]
+        sb[&#34;xxHash(user-1:server-b)&lt;br/&gt;= 85.0&#34;]
+        sc[&#34;xxHash(user-1:server-c)&lt;br/&gt;= 46.8&#34;]
+    end
+    subgraph S4[&#34;server-d 추가&#34;]
+        sd[&#34;xxHash(user-1:server-d)&lt;br/&gt;= 47.7&#34;]
+    end
+    win[&#34;server-b&#34;]
+
+    k --&gt; sa
+    k --&gt; sb
+    k --&gt; sc
+    k --&gt; sd
+    sb ==&gt;|&#34;최고 점수&#34;| win
+    sd -.-&gt;|&#34;85.0보다 낮으니 그대로 server-b&#34;| win
+
+    style k fill:#ffffcc,stroke:#333
+    style sa fill:#ffcccc,stroke:#333
+    style sb fill:#ccffcc,stroke:#333,stroke-width:3px
+    style sc fill:#ccccff,stroke:#333
+    style sd fill:#ffdca8,stroke:#333
+    style win fill:#ccffcc,stroke:#333,stroke-width:3px</pre><p>user-1은 server-b와 짝지었을 때 점수가 85.0으로 가장 높으니 server-b에 매핑됩니다. server-d가 추가되어도 새 점수 47.7은 85.0보다 낮기 때문에 user-1은 그대로 server-b에 남습니다. 새 서버에 대해 최고 점수를 받는 사용자만 옮겨 가기 때문에, 링 해시처럼 꼭 필요한 만큼만 이동합니다.</p><h3 id=랑데뷰-해시-구현>랑데뷰 해시 구현<a href=#랑데뷰-해시-구현 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>다음과 같이 코드를 작성해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/hrw.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=nx>xxhash_addon</span> <span class=kr>from</span> <span class=s2>&#34;xxhash-addon&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=p>{</span> <span class=nx>XXHash64</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>xxhash_addon</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 고성능 non-cryptographic xxHash를 통한 해시를 진행한다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param input 입력값
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 해시결과
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>xxHash</span><span class=p>(</span><span class=nx>input</span>: <span class=kt>string</span><span class=p>)</span><span class=o>:</span> <span class=kt>bigint</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>digest</span> <span class=o>=</span> <span class=nx>XXHash64</span><span class=p>.</span><span class=nx>hash</span><span class=p>(</span><span class=nx>Buffer</span><span class=p>.</span><span class=kr>from</span><span class=p>(</span><span class=nx>input</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 해시 결과(8바이트 Buffer)를 BigInt로 변환. number는 double 형식이고 표현가능한 정수의 범위는 -(2⁵³ - 1) ~ (2⁵³ - 1) 이므로 64비트를 표현 불가.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 16진수 문자열을 거치지 않고 Buffer에서 바로 읽는다. 문자열 변환과 파싱 비용을 줄이기 위해서다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=nx>digest</span><span class=p>.</span><span class=nx>readBigUInt64BE</span><span class=p>(</span><span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 랑데뷰(HRW, Highest Random Weight) 분배 알고리즘
+</span></span></span><span class=line><span class=cl><span class=cm> * @param key 유저ID 등의 키
+</span></span></span><span class=line><span class=cl><span class=cm> * @param servers 서버 목록
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 분배 대상이 되는 서버 이름
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>export</span> <span class=kd>function</span> <span class=nx>rendezvousHash</span><span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span><span class=o>:</span> <span class=kt>string</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>let</span> <span class=nx>selected</span> <span class=o>=</span> <span class=s2>&#34;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kd>let</span> <span class=nx>highestScore</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span><span class=nx>n</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>server</span> <span class=k>of</span> <span class=nx>servers</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 요청에 대한 각 서버별 해시 계산
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kr>const</span> <span class=nx>score</span> <span class=o>=</span> <span class=nx>xxHash</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>key</span><span class=si>}</span><span class=sb>:</span><span class=si>${</span><span class=nx>server</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 제일 높은 값의 서버를 선택
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=p>(</span><span class=nx>score</span> <span class=o>&gt;</span> <span class=nx>highestScore</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>highestScore</span> <span class=o>=</span> <span class=nx>score</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=nx>selected</span> <span class=o>=</span> <span class=nx>server</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>selected</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>사실 랑데뷰 해시의 구현 자체는 간단하기 때문에 별다른 설명이 필요 없는 수준입니다. 정말 간결하죠.</p><h3 id=빠르고-균등한-비-암호학적-해시>빠르고 균등한 비 암호학적 해시<a href=#빠르고-균등한-비-암호학적-해시 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>대신에 위 코드에서 주목할 점은 기존의 SHA-256 알고리즘 대신에 xxHash를 사용한다는 점입니다.</p><p>들어오는 요청을 분배하기 위한 해시는 암호학적 요소가 필요 없고, 빠르고 균등하게 분배 되는지가 가장 중요합니다.</p><blockquote><p>이 점은 랑데뷰 해시 뿐만 아니라 다른 모든 해시(나머지, 링 해시)에도 해당되는 내용입니다!</p></blockquote><p>예를 들어서 SHA-256 알고리즘은 암호학적 해시입니다. 공격자가 원래의 값을 찾기 어렵도록 하기 위해서 다음과 같은 방어 기법이 들어가 있죠.</p><ul><li>Preimage resistance: 해시에서 원래 입력값을 찾기 어렵게 만든다</li><li>Collision resistance: 서로 다른 두 입력이 같은 해시값을 갖기 어렵게 해야 한다</li></ul><p>그래서 SHA-256은 대략 다음과 같은 과정으로 해시를 만듭니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Input
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Padding
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>512-bit block으로 분할
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>Block 1 ─┐
+</span></span><span class=line><span class=cl>Block 2  │
+</span></span><span class=line><span class=cl>Block 3  ├─→ Compression function
+</span></span><span class=line><span class=cl>...      │
+</span></span><span class=line><span class=cl>Block N ─┘
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>256-bit hash
+</span></span></code></pre></div><p>반면에 xxHash는 암호학적 고려 없이 <code>데이터를 최대한 빠르게 잘 섞어서 좋은 분포를 만들자</code>가 목표입니다. 그래서 CPU 친화적인 연산을 많이 사용해서 빠르게 계산할 수 있도록 대략 다음과 같은 과정을 거칩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>입력
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>여러 accumulator
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>ADD / MUL / ROTATE / XOR
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>mix
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>avalanche
+</span></span><span class=line><span class=cl> ↓
+</span></span><span class=line><span class=cl>64-bit output
+</span></span></code></pre></div><p>간단하게 두 해시의 성능을 비교해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/perf-check.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=p>{</span> <span class=nx>hash</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./hash.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>import</span> <span class=p>{</span> <span class=nx>xxHash</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./hrw.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>users</span> <span class=o>=</span> <span class=nb>Array</span><span class=p>.</span><span class=kr>from</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=nx>length</span>: <span class=kt>100000</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>(</span><span class=nx>_</span><span class=p>,</span> <span class=nx>i</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=sb>`user-</span><span class=si>${</span><span class=nb>String</span><span class=p>(</span><span class=nx>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span><span class=si>}</span><span class=sb>`</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>ROUNDS</span> <span class=o>=</span> <span class=mi>5</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 해시 함수를 사용자 10만 명에 대해 실행하고 걸린 시간을 잰다.
+</span></span></span><span class=line><span class=cl><span class=cm> * 첫 번째 측정은 JIT 예열(warmup)이므로 측정에서 빼고, ROUNDS만큼 돌린 평균을 출력한다.
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>bench</span><span class=p>(</span><span class=nx>name</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>fn</span><span class=o>:</span> <span class=p>(</span><span class=nx>input</span>: <span class=kt>string</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=kt>bigint</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>user</span> <span class=k>of</span> <span class=nx>users</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>fn</span><span class=p>(</span><span class=nx>user</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>start</span> <span class=o>=</span> <span class=nx>performance</span><span class=p>.</span><span class=nx>now</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>round</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>round</span> <span class=o>&lt;</span> <span class=nx>ROUNDS</span><span class=p>;</span> <span class=nx>round</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>user</span> <span class=k>of</span> <span class=nx>users</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>fn</span><span class=p>(</span><span class=nx>user</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>elapsed</span> <span class=o>=</span> <span class=p>(</span><span class=nx>performance</span><span class=p>.</span><span class=nx>now</span><span class=p>()</span> <span class=o>-</span> <span class=nx>start</span><span class=p>)</span> <span class=o>/</span> <span class=nx>ROUNDS</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>name</span><span class=si>}</span><span class=sb>: </span><span class=si>${</span><span class=nx>elapsed</span><span class=p>.</span><span class=nx>toFixed</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span><span class=si>}</span><span class=sb>ms`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>bench</span><span class=p>(</span><span class=s2>&#34;SHA256&#34;</span><span class=p>,</span> <span class=p>(</span><span class=nx>user</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>hash</span><span class=p>(</span><span class=nx>user</span><span class=p>,</span> <span class=s2>&#34;sha256&#34;</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=nx>bench</span><span class=p>(</span><span class=s2>&#34;XXHash64&#34;</span><span class=p>,</span> <span class=p>(</span><span class=nx>user</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>xxHash</span><span class=p>(</span><span class=nx>user</span><span class=p>));</span>
+</span></span></code></pre></div><p>실행 결과는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/perf-check.ts
+</span></span><span class=line><span class=cl>SHA256: 40.2ms
+</span></span><span class=line><span class=cl>XXHash64: 23.1ms
+</span></span></code></pre></div><p>xxHash가 약 1.7배 빠른 결과를 보여주고 있네요!</p><blockquote><p><code>user-1</code> 같은 짧은 키는 해시 계산 자체보다 함수 호출과 Buffer 생성 같은 부차적인 시간이 더 많이 소요됩니다. 그래서 두 해시의 차이가 실제보다 작게 보이지만, 입력이 길어질수록 xxHash의 속도 차이는 더 벌어집니다!</p></blockquote><h3 id=랑데뷰-해시-분배-코드-작성>랑데뷰 해시 분배 코드 작성<a href=#랑데뷰-해시-분배-코드-작성 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>다시 랑데뷰 해시로 돌아와서, 이제 분배를 진행해볼 수 있도록 코드를 작성할 차례입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=c1>// src/distribution.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>import</span> <span class=p>{</span> <span class=nx>rendezvousHash</span> <span class=p>}</span> <span class=kr>from</span> <span class=s2>&#34;./hrw.js&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>...</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 해시 알고리즘과 각 해시 알고리즘 실행을 위한 hashFn 구성
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>algorithms</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=err>(</span><span class=na>servers</span><span class=err>:</span> <span class=na>string</span><span class=err>[])</span> <span class=err>=</span><span class=p>&gt;</span> <span class=p>(</span><span class=nx>key</span>: <span class=kt>string</span><span class=p>,</span> <span class=nx>servers</span>: <span class=kt>string</span><span class=p>[])</span> <span class=o>=&gt;</span> <span class=kt>string</span><span class=o>&gt;</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;mod&#34;</span><span class=o>:</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=nx>modHash</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;ring hash&#34;</span><span class=o>:</span> <span class=p>(</span><span class=nx>servers</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kr>const</span> <span class=nx>ring</span> <span class=o>=</span> <span class=nx>makeRing</span><span class=p>(</span><span class=nx>servers</span><span class=p>);</span> <span class=c1>// 링을 재사용하기 위해서 클로저로 캡쳐한다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>(</span><span class=nx>key</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>ringHash</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;랑데뷰(HRW)&#34;</span><span class=o>:</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=nx>rendezvousHash</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></div><p>실행 결과는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx tsx ./src/distribution.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> <span class=nv>mod</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>339</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>347</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>314</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>244</span>    │
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>242</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>259</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>255</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>756</span> / <span class=nv>1000</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> ring <span class=nb>hash</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>317</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>316</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>367</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>215</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>268</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>280</span>    │
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>237</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>237</span> / <span class=nv>1000</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>=====</span> 랑데뷰<span class=o>(</span>HRW<span class=o>)</span> <span class=o>=====</span>
+</span></span><span class=line><span class=cl>--- 서버 3대 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>368</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>289</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>343</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>--- server-d 추가 ---
+</span></span><span class=line><span class=cl>┌──────────┬────────┐
+</span></span><span class=line><span class=cl>│ <span class=o>(</span>index<span class=o>)</span>  │ Values │
+</span></span><span class=line><span class=cl>├──────────┼────────┤
+</span></span><span class=line><span class=cl>│ server-b │ <span class=m>261</span>    │
+</span></span><span class=line><span class=cl>│ server-c │ <span class=m>222</span>    │
+</span></span><span class=line><span class=cl>│ server-a │ <span class=m>263</span>    │
+</span></span><span class=line><span class=cl>│ server-d │ <span class=m>254</span>    │
+</span></span><span class=line><span class=cl>└──────────┴────────┘
+</span></span><span class=line><span class=cl>이동된 사용자 수: <span class=m>254</span> / <span class=m>1000</span>
+</span></span></code></pre></div><p>링 해시보다 훨씬 간단하면서도 유사한 결과를 내고 있습니다. 다만, HRW는 노드 개수가 n일 때, O(n)의 복잡도를 가지기 때문에 노드가 수백 개를 넘어가거나 초당 요청 수가 수백만 정도로 매우 많다면 효율이 많이 떨어지는 문제가 있습니다.</p><table><thead><tr><th>구분</th><th>나머지 연산(mod)</th><th>링 해시</th><th>랑데뷰(HRW)</th></tr></thead><tbody><tr><td>서버 3대 → 4대일 때 이동한 사용자(1000명 중)</td><td>756명</td><td>237명</td><td>254명</td></tr><tr><td>사용자 한 명을 배정하는 비용</td><td>해시 1번, O(1)</td><td>해시 1번 + 이진 탐색, O(log(n·v))</td><td>해시 n번, O(n)</td></tr><tr><td>미리 만들어 둘 것</td><td>없음</td><td>정렬된 링(서버가 바뀔 때마다 다시)</td><td>없음</td></tr><tr><td>메모리</td><td>없음</td><td>지점 n·v개</td><td>없음</td></tr><tr><td>부하 균등</td><td>좋음</td><td>가상 노드 수(v)에 따라 달라짐</td><td>좋음</td></tr><tr><td>어울리는 상황</td><td>상태 없는 서버</td><td>서버가 많을 때(수백 대 이상)</td><td>서버가 적을 때, 코드가 단순해야 할 때</td></tr></tbody></table><p>n은 서버 수, v는 서버당 가상 노드 수입니다.</p><h2 id=참고-자료>참고 자료<a href=#참고-자료 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li>요즘 개발자를 위한 시스템 설계 수업, 길벗</li><li><a href=https://github.com/ktrongnhan/xxhash-addon>xxhash-addon</a></li></ul></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button next"><a href=https://netscout.github.io/posts/node-js-experimental-vm-modules/><span class=button__text>Node.js: --experimental-vm-modules</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script><script type=module>
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true });
+</script></div></body></html>

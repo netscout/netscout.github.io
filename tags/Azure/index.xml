@@ -1,0 +1,688 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Azure on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/Azure/</link><description>Recent content in Azure on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Mon, 31 Jul 2023 16:27:57 +0900</lastBuildDate><atom:link href="https://netscout.github.io/tags/Azure/index.xml" rel="self" type="application/rss+xml"/><item><title>Terraform으로 기존 Azure 리소스 임포트하기</title><link>https://netscout.github.io/posts/terraform%EC%9C%BC%EB%A1%9C-%EA%B8%B0%EC%A1%B4-azure-%EB%A6%AC%EC%86%8C%EC%8A%A4-%EC%9E%84%ED%8F%AC%ED%8A%B8%ED%95%98%EA%B8%B0/</link><pubDate>Mon, 31 Jul 2023 16:27:57 +0900</pubDate><guid>https://netscout.github.io/posts/terraform%EC%9C%BC%EB%A1%9C-%EA%B8%B0%EC%A1%B4-azure-%EB%A6%AC%EC%86%8C%EC%8A%A4-%EC%9E%84%ED%8F%AC%ED%8A%B8%ED%95%98%EA%B8%B0/</guid><description>Terraform은 DevOps의 필수 구성 요소로 자리 잡고 있습니다. Terraform을 통해 서비스를 지탱하는 인프라에 대한 정의, 배포, 업데이트 그리고 삭제를 코드로 정의할 수 있으며 이러한 개념을 IaC(infrastructure as code)라고 합니다.</description><content>&lt;p>Terraform은 DevOps의 필수 구성 요소로 자리 잡고 있습니다. Terraform을 통해 서비스를 지탱하는 인프라에 대한 정의, 배포, 업데이트 그리고 삭제를 코드로 정의할 수 있으며 이러한 개념을 IaC(infrastructure as code)라고 합니다.&lt;/p>
+&lt;blockquote>
+&lt;p>DevOps는 소프트웨어 배포를 빠르고 효율적으로 할 수 있게 해주는 프로세스, 아이디어, 테크닉을 말한다.&lt;/p>&lt;/blockquote>
+&lt;p>그런데, 인프라를 코드로 작성하면 무슨 장점이 있는 걸까요?&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>자동화&lt;/strong>: 인프라를 코드로 작성할 수 있다면 자동화할 수 있고, 필요할 때 언제든 즉시 실행 가능합니다.&lt;/li>
+&lt;li>&lt;strong>실수 방지&lt;/strong>: 자동화를 통해 수작업에서 발생하는 오류를 줄일 수 있고, 몇 번이고 반복해서 실행해도 안심할 수 있죠.&lt;/li>
+&lt;li>&lt;strong>문서화&lt;/strong>: 또한 코드는 인프라에 대한 문서로 볼 수도 있습니다. 누군가의 머리 속에만 존재하지 않고, 누구나 볼 수 있는 코드에 인프라의 정보가 담기는 셈이죠.&lt;/li>
+&lt;li>&lt;strong>버전 관리&lt;/strong>: 그리고 매우 큰 장점이 또 있는데요, 마치 소스 코드를 git으로 버전 관리 하듯이 인프라의 구성 역시 코드로써 버전 관리 할 수 있습니다. 뭔가 잘 못 됐을 때, 빠르게 커밋 로그를 통해 변경점을 찾을 수 있고 이전 버전으로 돌아갈 수도 있죠! 😊&lt;/li>
+&lt;/ul>
+&lt;p>그런데 Terraform으로 관리를 시작하면 누구나 거치는 어려움이 있습니다. 그건 바로 모든 리소스를 Terraform을 통해서만 관리해야 한다는 점입니다. Terraform으로 리소스를 만들어 놓고 나서, 나도 모르게 습관적으로 포털에 들어가서 마우스를 클릭클릭해서 설정을 변경하고 싶은 유혹에 빠집니다. 수작업을 추가하는 순간 Terraform의 상태 관리에서 벗어나기 시작하므로 피치 못할 사정이 아니면 Terraform을 통해서 상태를 변경해야 합니다.&lt;/p>
+&lt;blockquote>
+&lt;p>물론 어떤 기술이나 다 그렇듯이 Terraform으로 100% 다 제어가 불가능한 경우도 있습니다. Terraform의 한계이거나 Terraform 프로바이더의 문제 등으로 100% 제어가 다 안되는 경우가 종종 발생하긴 합니다. 그럴 때는 리소스의 생성 및 삭제만 Terraform으로 관리하고 나머지는 수작업으로 관리하는 수 밖에 없습니다. 😊 물론 제가 몰라서 그럴 가능성도 충분히&amp;hellip;쓰읍 😭&lt;/p>&lt;/blockquote>
+&lt;p>다음으로 겪는 어려움은 Terraform을 사용하기 전에 이미 배포된 리소스입니다. 가장 이상적인 방법은 물론 기존 리소스를 지우고 Terraform으로 새로 배포하는 겠지만 현실은 전혀 그렇지 않죠! 😭&lt;/p>
+&lt;p>그래서 Terraform은 기존에 이미 배포된 리소스를 임포트 할 수 있는 방법을 제공해왔습니다. 특히 최근 1.5 버전 부터 &lt;a href="https://developer.hashicorp.com/terraform/language/import/generating-configuration">import 블록&lt;/a>을 제공합니다.&lt;/p>
+&lt;h2 id="예시">예시&lt;/h2>
+&lt;p>import 블록을 통해 실제 배포된 인스턴스의 Terraform 코드를 생성해서 가져와보고자 합니다. 현재 작업 중인 솔루션은 대부분의 운영 리소스가 Terraform으로 배포되어 Azure에서 운영되고 있습니다. 딱 한 가지 Container Instance로 동작 중인 서버들이 수작업으로 배포되어 있는데요, 이 서버를 import 블록으로 가져오고자 합니다.&lt;/p>
+&lt;h3 id="준비">준비&lt;/h3>
+&lt;p>우선 가져오고자 하는 리소스의 Terraform 문서를 확인합니다. Container Instance는 &lt;a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_group">여기&lt;/a> 에서 확인할 수 있습니다.&lt;/p>
+&lt;p>예시 코드를 확인해보면 다음과 같습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;example&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;example-resources&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;West Europe&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;example&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;example-continst&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">example&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">location&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">example&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Public&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dns_name_label&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;aci-label&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;hello-world&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;mcr.microsoft.com/azuredocs/aci-helloworld:latest&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;0.5&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;1.5&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ports&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">443&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">protocol&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;TCP&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;sidecar&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;mcr.microsoft.com/azuredocs/aci-tutorial-sidecar&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;0.5&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;1.5&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">environment&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;testing&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>다행히도 복잡하지 않네요. 😊 리소스 그룹과 container instance 딱 2개만 신경쓰면 됩니다!&lt;/p>
+&lt;h3 id="maintf-작성하기">main.tf 작성하기&lt;/h3>
+&lt;p>import를 진행 할 폴더를 생성하고(ex: tf-import-test), main.tf 파일을 생성합니다.&lt;/p>
+&lt;p>그리고 다음과 같이 Terraform 버전과 프로바이더를 설정합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">terraform&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">required_version&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;gt;= 1.0.0, &amp;lt; 2.0.0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">required_providers&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">azurerm&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">source&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;hashicorp/azurerm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">version&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;~&amp;gt;3.0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">provider&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">features&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>terraform 버전은 1.x.x 버전을 사용한다고 지정했고, Azure 클라우드 사용을 위해 azurerm 프로바이더를 지정했습니다.&lt;/p>
+&lt;blockquote>
+&lt;p>terraform 1.0 부터는 &lt;a href="https://developer.hashicorp.com/terraform/language/v1-compatibility-promises">v1-compatibility-promises&lt;/a>가 적용되는데요, 1.0 부터 향후 출시될 1.x 버전까지는 코드 변경 없이 동작한다는 걸 보장합니다. 그래서 위 main.tf에서 terraform의 버전을 1.0이상, 2.0 미만으로 설정해두었습니다. 😊&lt;/p>&lt;/blockquote>
+&lt;h3 id="importtf-작성">import.tf 작성&lt;/h3>
+&lt;p>이제 임포트 해오고 싶은 리소스를 import 블록으로 작성해 볼 차례입니다. 앞서 azurerm의 container instance의 예시 코드를 확인했었는데요, 거기에 맞춰 다음과 같이 작성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// import resource group
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">import&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">to&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// import container instance
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">import&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">to&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>2개의 import 블록은 각각 리소스 그룹과 리소스 그룹 안에 있는 container instance를 임포트합니다. 이제 구체적으로 각 import 블록이 어떤 리소스를 임포트 해와야 하는지 id를 적어줄 차례입니다. id는 각 클라우드 서비스에 따라 확인하는 방법이 다른데요 Azure는 다음과 같이 확인할 수 있습니다.&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>az cli 사용하기&lt;/strong>
+az resource show 명령을 통해 id를 확인할 수 있습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; az resource show -g &lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}&lt;/span> —name &lt;span class="o">{&lt;/span>리소스 이름&lt;span class="o">}&lt;/span> —resource-type “&lt;span class="o">{&lt;/span>리소스 타입&lt;span class="o">}&lt;/span>” &lt;span class="p">|&lt;/span> grep id
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&amp;#34;id&amp;#34;&lt;/span>: &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>여기서는 container instance를 임포트하므로 리소스 타입은 Microsoft.ContainerInstance 입니다. Azure의 경우 리소스 타입은 &lt;a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers">여기&lt;/a>에서 확인할 수 있습니다.
+&lt;br>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>포털에서 확인하기&lt;/strong>
+포털에 접근 가능한 경우 포털에서 해당 리소스를 찾고, 상단 우측의 &lt;strong>JSON 보기&lt;/strong>를 클릭합니다.&lt;/p>
+&lt;p align="center">&lt;img src="./image01.png">&lt;/p>
+화면 우측에 나타나는 정보창에서 리소스 ID를 확인 및 복사할 수 있습니다.
+&lt;/li>
+&lt;/ul>
+&lt;p>이렇게 확인한 리소스 ID를 각각의 import 블록에 채워 넣습니다.&lt;/p>
+&lt;h3 id="임포트-플랜-생성하기">임포트 플랜 생성하기&lt;/h3>
+&lt;p>다음으로 &lt;strong>-generate-config-out&lt;/strong> 옵션을 통해 임포트 플랜을 생성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; terraform init
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&amp;gt; terraform plan -generate-config-out imported.tf
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_resource_group.rg: Preparing import... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_container_group.container: Preparing import... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}&lt;/span>/providers/Microsoft.ContainerInstance/containerGroups/&lt;span class="o">{&lt;/span>리소스 이름&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_resource_group.rg: Refreshing state... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_container_group.container: Refreshing state... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}&lt;/span>/providers/Microsoft.ContainerInstance/containerGroups/&lt;span class="o">{&lt;/span>리소스 이름&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-/+ destroy and &lt;span class="k">then&lt;/span> create replacement
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Terraform will perform the following actions:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># azurerm_container_group.container must be replaced&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># (imported from &amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># Warning: this will destroy the imported resource&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-/+ resource &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">exposed_port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span> &lt;span class="c1"># forces replacement&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">fqdn&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ~ &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span> -&amp;gt; &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">ip_address&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Public&amp;#34;&lt;/span> &lt;span class="c1"># forces replacement&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">network_profile_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - &lt;span class="nv">subnet_ids&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span> -&amp;gt; null
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - &lt;span class="nv">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span> -&amp;gt; null
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - &lt;span class="nv">zones&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span> -&amp;gt; null
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ~ container &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - &lt;span class="nv">environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span> -&amp;gt; null
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{도커 이미지}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">memory&lt;/span> &lt;span class="o">=&lt;/span> 1.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> - &lt;span class="nv">secure_environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>sensitive value&lt;span class="o">)&lt;/span> -&amp;gt; null
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> image_registry_credential &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># azurerm_resource_group.rg will be imported&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># (config will be generated)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> resource &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Plan: &lt;span class="m">2&lt;/span> to import, &lt;span class="m">1&lt;/span> to add, &lt;span class="m">0&lt;/span> to change, &lt;span class="m">1&lt;/span> to destroy.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">╷
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ Warning: Config generation is experimental
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ Generating configuration during import is currently experimental, and the generated configuration format may change in future versions.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>import.tf에 설정한 대로 리소스 그룹, container instance가 각각 &lt;strong>azurerm_resource_group.rg&lt;/strong>, &lt;strong>azurerm_container_group.container&lt;/strong> 블록으로 매핑되었습니다. 그리고 plan 실행 결과 2개의 리소스를 임포트 할 수 있고, 그 중에 1개는 replace 된다(1 to destroy, 1 to add)고 합니다. 어… 기존에 이미 동작하는 리소스를 가져오는 거라서 replace되면 좀 곤란하긴 하지만 그건 조금 이따가 해결해보겠습니다.&lt;/p>
+&lt;p>우선 imported.tf를 열어서 생성된 코드를 확인합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">#&lt;/span> &lt;span class="nx">__generated__&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">Terraform&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">#&lt;/span> &lt;span class="nx">Please&lt;/span> &lt;span class="nx">review&lt;/span> &lt;span class="nx">these&lt;/span> &lt;span class="nx">resources&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="nx">move&lt;/span> &lt;span class="nx">them&lt;/span> &lt;span class="nx">into&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">main&lt;/span> &lt;span class="nx">configuration&lt;/span> &lt;span class="nx">files&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">#&lt;/span> &lt;span class="nx">__generated__&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">from&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">managed_by&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">#&lt;/span> &lt;span class="nx">__generated__&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">from&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dns_name_label&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">exposed_port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">key_vault_key_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">subnet_ids&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">zones&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{도커 이미지}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mf">1.5&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">secure_environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span> &lt;span class="err">#&lt;/span> &lt;span class="nx">sensitive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image_registry_credential&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span> &lt;span class="err">#&lt;/span> &lt;span class="nx">sensitive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">user_assigned_identity_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이 container instance는 외부에서 접근할 수 있는 ip나 포트가 없고, 혼자서 자기 할 일을 하는 리소스입니다. 따라서 &lt;strong>ip_address_type&lt;/strong>등의 값이 null로 설정된 걸 볼 수 있습니다. 그런데 방금 전의 plan 결과를 다시 한번 볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">-/+ resource &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">exposed_port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span> &lt;span class="c1"># forces replacement&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">fqdn&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ~ &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span> -&amp;gt; &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">ip_address&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>known after apply&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> + &lt;span class="nv">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Public&amp;#34;&lt;/span> &lt;span class="c1"># forces replacement&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>ip_address_type&lt;/strong>은 분명 null인데 Public으로 설정된다고 하고, &lt;strong>exposed_port&lt;/strong> 역시 apply 실행 후에 얻을 수 있다고 하면서 강제로 이 리소스가 교체될 거라고(&lt;strong>forces replacement&lt;/strong>) 합니다. 음… 왜 그런지 모르겠지만 일단 이 값들의 변경을 무시하도록 처리해서 해결해보겠습니다.&lt;/p>
+&lt;p>imported.tf의 &lt;strong>azurerm_container_group.container&lt;/strong> 에 &lt;strong>lifecycle&lt;/strong> 속성을 추가합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">resource &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> ...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> lifecycle &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">ignore_changes&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[&lt;/span>exposed_port, ip_address_type&lt;span class="o">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 다시 plan을 실행합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ terraform plan
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Terraform will perform the following actions:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># azurerm_container_group.container will be imported&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> resource &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">subnet_ids&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">zones&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> container &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{도커 이미지}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">memory&lt;/span> &lt;span class="o">=&lt;/span> 1.5
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="m">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">secure_environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">(&lt;/span>sensitive value&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> image_registry_credential &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1"># azurerm_resource_group.rg will be imported&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> resource &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="o">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nv">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="o">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Plan: &lt;span class="m">2&lt;/span> to import, &lt;span class="m">0&lt;/span> to add, &lt;span class="m">0&lt;/span> to change, &lt;span class="m">0&lt;/span> to destroy.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>오! 무시무시한 force replacement 가 사라졌습니다! 😀 이제 apply 해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; terraform apply
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Plan: &lt;span class="m">2&lt;/span> to import, &lt;span class="m">0&lt;/span> to add, &lt;span class="m">0&lt;/span> to change, &lt;span class="m">0&lt;/span> to destroy.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Do you want to perform these actions?
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Terraform will perform the actions described above.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Only &lt;span class="s1">&amp;#39;yes&amp;#39;&lt;/span> will be accepted to approve.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Enter a value: yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_resource_group.rg: Importing... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_resource_group.rg: Import &lt;span class="nb">complete&lt;/span> &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_container_group.container: Importing... &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}&lt;/span>/providers/Microsoft.ContainerInstance/containerGroups/&lt;span class="o">{&lt;/span>리소스 이름&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">azurerm_container_group.container: Import &lt;span class="nb">complete&lt;/span> &lt;span class="o">[&lt;/span>&lt;span class="nv">id&lt;/span>&lt;span class="o">=&lt;/span>/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/&lt;span class="o">{&lt;/span>리소스 그룹&lt;span class="o">}&lt;/span>/providers/Microsoft.ContainerInstance/containerGroups/&lt;span class="o">{&lt;/span>리소스 이름&lt;span class="o">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Apply complete! Resources: &lt;span class="m">2&lt;/span> imported, &lt;span class="m">0&lt;/span> added, &lt;span class="m">0&lt;/span> changed, &lt;span class="m">0&lt;/span> destroyed.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>임포트가 끝났습니다! 임포트된 상태 값은 같은 폴더의 &lt;strong>terraform.tfstate&lt;/strong> 파일에 저장되어 있는데요, Terraform 상태는 &lt;strong>backend&lt;/strong> 설정을 통해 원격 상태 저장소(Azure Storage, AWS S3)에 저장하는 게 일반적이죠.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Azure
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">terraform&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Store Terraform state in Azure Storage
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">storage_account_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{스토리지 계정 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{스토리지 컨테이너 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">key&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{경로}/terraform.tfstate&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// AWS
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">terraform&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Store Terraform state in AWS S3
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="s2">&amp;#34;s3&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">bucket&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{버킷 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">key&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{경로}/terraform.tfstate&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">region&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;ap-northeast-2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// lock을 사용하는 경우
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">dynamodb_table&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{테이블 이름}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 암호화 사용 여부
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">encrypt&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이렇게 backend를 설정하고 나서 &lt;strong>terraform init&lt;/strong> 을 실행하면, 로컬에 저장되어 있는 상태 값을 원격 저장소로 옮기게 됩니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&amp;gt; terraform init
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Initializing the backend...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Do you want to copy existing state to the new backend?
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Pre-existing state was found &lt;span class="k">while&lt;/span> migrating the previous &lt;span class="s2">&amp;#34;local&amp;#34;&lt;/span> backend to the
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> newly configured &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> backend. No existing state was found in the newly
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> configured &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> backend. Do you want to copy this state to the new &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> backend? Enter &lt;span class="s2">&amp;#34;yes&amp;#34;&lt;/span> to copy and &lt;span class="s2">&amp;#34;no&amp;#34;&lt;/span> to start with an empty state.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> Enter a value: yes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Successfully configured the backend &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span>! Terraform will automatically
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use this backend unless the backend configuration changes.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="심화-모듈화-까지-진행해보기">심화: 모듈화 까지 진행해보기&lt;/h2>
+&lt;p>그런데 사실 임포트 하고자 하는 container instance는 1대가 아니었습니다. 스테이징, 운영 환경에서 동일한 설정으로 각가 1대씩 운영 중인 상황입니다.&lt;/p>
+&lt;p>동일한 방법으로 추가로 1대를 더 임포트 했다 치고 모듈화해봅시다!&lt;/p>
+&lt;h3 id="모듈-작성하기">모듈 작성하기&lt;/h3>
+&lt;p>우선 모듈을 저장하기 위한 폴더를 생성합니다. 여기서는 &lt;strong>xxx-modules&lt;/strong> 폴더에 작성합니다. 모듈은 종류에 따라서 구분되는 게 바람직한데요, 지금 작성하는 모듈은 container instance이므로 &lt;strong>xxx-modules/modules/services/container-instance&lt;/strong> 폴더를 생성하고 &lt;strong>main.tf&lt;/strong> 를 작성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">locals&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">vm_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;${var.vm_name}-${var.env_alias}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 현재 두 인스턴스가 동일한 리소스 그룹에 배포되어 있으므로, 리소스 그룹 이름에서 환경은 일단 제외
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;${var.vm_name}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">data&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_registry&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;acr&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kd">var&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container_registry_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kd">var&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container_registry_rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kd">var&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">location&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">managed_by&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">local&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">resource_group_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dns_name_label&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">exposed_port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">key_vault_key_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">location&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">local&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">vm_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">subnet_ids&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">zones&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kd">var&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">vm_image_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mf">1.5&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">local&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">vm_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">secure_environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span> &lt;span class="err">#&lt;/span> &lt;span class="nx">sensitive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">image_registry_credential&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">password&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span> &lt;span class="err">#&lt;/span> &lt;span class="nx">sensitive&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">login_server&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">user_assigned_identity_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">admin_username&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// acr의 스펠링 변경도 무시할 수 있도록 image_registry_credential 추가
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nx">lifecycle&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">ignore_changes&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">exposed_port&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ip_address_type&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">image_registry_credential&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>기존에 임포트된 &lt;strong>imported.tf&lt;/strong> 를 복사해온 다음에 필요한 정보를 추가하고, 모듈화 하기 위해서 하드코딩 되어 있던 내용을 변수로 추출했습니다. 추출된 변수는 &lt;strong>variables.tf&lt;/strong> 에 작성합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">//---------------------------Required Variables---------------------------//
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">variable&lt;/span> &lt;span class="nx">vm_name&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;name of the vm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">variable&lt;/span> &lt;span class="nx">env_alias&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;alias of the environment&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">validation&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">condition&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">contains&lt;/span>&lt;span class="p">([&lt;/span>&lt;span class="s2">&amp;#34;dev&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;stg&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;prod&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;g&amp;#34;&lt;/span>&lt;span class="p">],&lt;/span> &lt;span class="kd">var&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">env_alias&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">error_message&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;env_alias must be any of dev, stg or prod, g&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">//---------------------------Optional Variables---------------------------//
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">variable&lt;/span> &lt;span class="nx">location&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">default&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;location of the resource group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">variable&lt;/span> &lt;span class="s2">&amp;#34;vm_image_name&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;name of the vm image&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">variable&lt;/span> &lt;span class="nx">container_registry_name&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">default&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;name of the container registry&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">variable&lt;/span> &lt;span class="nx">container_registry_rg&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">default&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">description&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;name of the resource group for the container registry&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>에를 들어서 &lt;strong>vm_name&lt;/strong>을 &lt;strong>some-vm&lt;/strong>, &lt;strong>env_alias&lt;/strong>를 &lt;strong>dev&lt;/strong>로 지정하면 리소스 그룹의 이름은 &lt;strong>some-vm&lt;/strong>, container instance의 이름은 &lt;strong>some-vm-dev&lt;/strong>가 되는 셈이죠. 개인적으로 리소스 그룹은 리소스의 이름과 일치시키는 걸 선호하지만 현재 배포된 상황이 같은 리소스 그룹에 2개의 container instance가 들어있기 때문에 어쩔 수 없이 일단 이렇게 작성했습니다.&lt;/p>
+&lt;h3 id="모듈-사용하기">모듈 사용하기&lt;/h3>
+&lt;p>그리고 이 모듈을 사용해서 리소스를 관리하기 위한 Terraform 코드를 작성할 차례입니다. 여기서는 &lt;strong>xxx-live/live/stg/services/container-instance/some-vm&lt;/strong> 에 작성합니다.&lt;/p>
+&lt;p>&lt;strong>main.tf&lt;/strong> 부터 작성을 시작해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="nx">terraform&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">required_version&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;&amp;gt;= 1.0.0, &amp;lt; 2.0.0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">required_providers&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">azurerm&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">source&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;hashicorp/azurerm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">version&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;~&amp;gt;3.0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">Store&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">Azure&lt;/span> &lt;span class="nx">Storage&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">backend&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">storage_account_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">key&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;stg/services/container-instance/some-vm/terraform.tfstate&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">provider&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">features&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span> &lt;span class="s2">&amp;#34;some-vm&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">source&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;../../../../../../xxx-modules/modules/services/container-instance&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container_registry_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">container_registry_rg&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">vm_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;some-vm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">env_alias&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;stg&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">vm_image_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>앞서 작성한 모듈을 &lt;strong>source&lt;/strong> 속성으로 참조하였고 필요한 파라미터를 지정해주었습니다. 이제 앞서 import 했던 terraform.tfstate 파일을 main.tf 파일과 동일한 폴더에 복사합니다. 그리고 terraform init 명령을 실행합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">init&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Initializing&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">backend&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Do&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">want&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">copy&lt;/span> &lt;span class="nx">existing&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">backend&lt;/span>&lt;span class="o">?&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Pre&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">existing&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">was&lt;/span> &lt;span class="nx">found&lt;/span> &lt;span class="k">while&lt;/span> &lt;span class="nx">migrating&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">previous&lt;/span> &lt;span class="s2">&amp;#34;local&amp;#34;&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">the&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">newly&lt;/span> &lt;span class="nx">configured&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="nx">backend&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">No&lt;/span> &lt;span class="nx">existing&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">was&lt;/span> &lt;span class="nx">found&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">newly&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">configured&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span> &lt;span class="nx">backend&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">Do&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">want&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">copy&lt;/span> &lt;span class="k">this&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">backend&lt;/span>&lt;span class="o">?&lt;/span> &lt;span class="nx">Enter&lt;/span> &lt;span class="s2">&amp;#34;yes&amp;#34;&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">copy&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="s2">&amp;#34;no&amp;#34;&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">start&lt;/span> &lt;span class="kd">with&lt;/span> &lt;span class="nx">an&lt;/span> &lt;span class="nx">empty&lt;/span> &lt;span class="nx">state&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">Enter&lt;/span> &lt;span class="nx">a&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">yes&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Successfully&lt;/span> &lt;span class="nx">configured&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="s2">&amp;#34;azurerm&amp;#34;&lt;/span>&lt;span class="o">!&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">automatically&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">use&lt;/span> &lt;span class="k">this&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="nx">unless&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="nx">configuration&lt;/span> &lt;span class="nx">changes&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Initializing&lt;/span> &lt;span class="nx">modules&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">-&lt;/span> &lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">..&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">xxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">modules&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">modules&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">services&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">container&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">instance&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Initializing&lt;/span> &lt;span class="nx">provider&lt;/span> &lt;span class="nx">plugins&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">-&lt;/span> &lt;span class="nx">Finding&lt;/span> &lt;span class="nx">hashicorp&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">azurerm&lt;/span> &lt;span class="nx">versions&lt;/span> &lt;span class="nx">matching&lt;/span> &lt;span class="s2">&amp;#34;~&amp;gt; 3.0&amp;#34;&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">-&lt;/span> &lt;span class="nx">Installing&lt;/span> &lt;span class="nx">hashicorp&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">azurerm&lt;/span> &lt;span class="nx">v3&lt;/span>&lt;span class="mf">.67.0&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">-&lt;/span> &lt;span class="nx">Installed&lt;/span> &lt;span class="nx">hashicorp&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">azurerm&lt;/span> &lt;span class="nx">v3&lt;/span>&lt;span class="mf">.67.0&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">signed&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">HashiCorp&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">has&lt;/span> &lt;span class="nx">created&lt;/span> &lt;span class="nx">a&lt;/span> &lt;span class="nx">lock&lt;/span> &lt;span class="nx">file&lt;/span> &lt;span class="p">.&lt;/span>&lt;span class="nx">terraform&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">lock&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">hcl&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">record&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">provider&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">selections&lt;/span> &lt;span class="nx">it&lt;/span> &lt;span class="nx">made&lt;/span> &lt;span class="nx">above&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">Include&lt;/span> &lt;span class="k">this&lt;/span> &lt;span class="nx">file&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">version&lt;/span> &lt;span class="nx">control&lt;/span> &lt;span class="nx">repository&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">so&lt;/span> &lt;span class="nx">that&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">can&lt;/span> &lt;span class="nx">guarantee&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">make&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">same&lt;/span> &lt;span class="nx">selections&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="k">default&lt;/span> &lt;span class="nx">when&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">you&lt;/span> &lt;span class="nx">run&lt;/span> &lt;span class="s2">&amp;#34;terraform init&amp;#34;&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">future&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">has&lt;/span> &lt;span class="nx">been&lt;/span> &lt;span class="nx">successfully&lt;/span> &lt;span class="nx">initialized&lt;/span>&lt;span class="o">!&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">You&lt;/span> &lt;span class="nx">may&lt;/span> &lt;span class="nx">now&lt;/span> &lt;span class="nx">begin&lt;/span> &lt;span class="nx">working&lt;/span> &lt;span class="kd">with&lt;/span> &lt;span class="nx">Terraform&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">Try&lt;/span> &lt;span class="nx">running&lt;/span> &lt;span class="s2">&amp;#34;terraform plan&amp;#34;&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">see&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">any&lt;/span> &lt;span class="nx">changes&lt;/span> &lt;span class="nx">that&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">required&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">infrastructure&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">All&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">commands&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">should&lt;/span> &lt;span class="nx">now&lt;/span> &lt;span class="nx">work&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">If&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">ever&lt;/span> &lt;span class="nx">set&lt;/span> &lt;span class="nx">or&lt;/span> &lt;span class="nx">change&lt;/span> &lt;span class="nx">modules&lt;/span> &lt;span class="nx">or&lt;/span> &lt;span class="nx">backend&lt;/span> &lt;span class="nx">configuration&lt;/span> &lt;span class="k">for&lt;/span> &lt;span class="nx">Terraform&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">rerun&lt;/span> &lt;span class="k">this&lt;/span> &lt;span class="nx">command&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">reinitialize&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">working&lt;/span> &lt;span class="nx">directory&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">If&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">forget&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">other&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">commands&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">detect&lt;/span> &lt;span class="nx">it&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="nx">remind&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="k">do&lt;/span> &lt;span class="nx">so&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">necessary&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>모듈과 필요한 프로바이더를 설치하였고, import 로 생성했던 상태 역시 새로 지정된 backend로 이관되었습니다. 그러면 plan을 실행해볼까요?&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">plan&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Reading&lt;/span>&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Refreshing&lt;/span> &lt;span class="nx">state&lt;/span>&lt;span class="p">...&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="err">/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Refreshing&lt;/span> &lt;span class="nx">state&lt;/span>&lt;span class="p">...&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="err">/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">Read&lt;/span> &lt;span class="nx">complete&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="nx">s&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="nx">id&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">acr&lt;/span> &lt;span class="nx">id&lt;/span>&lt;span class="p">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">used&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">selected&lt;/span> &lt;span class="nx">providers&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">generate&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">following&lt;/span> &lt;span class="nx">execution&lt;/span> &lt;span class="nx">plan&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">Resource&lt;/span> &lt;span class="nx">actions&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">indicated&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">with&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">following&lt;/span> &lt;span class="nx">symbols&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">create&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">destroy&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">perform&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">following&lt;/span> &lt;span class="nx">actions&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">destroyed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">because&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="nx">is&lt;/span> &lt;span class="nx">not&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">configuration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;id=/subscriptions/xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/{리소스 그룹}/providers/Microsoft.ContainerInstance/containerGroups/{리소스 이름}&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 그룹}&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">subnet_ids&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">zones&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mf">1.5&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;{리소스 이름}&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">secure_environment_variables&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">sensitive&lt;/span> &lt;span class="nx">value&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">image_registry_credential&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">destroyed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">because&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="nx">is&lt;/span> &lt;span class="nx">not&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">configuration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">-&lt;/span> &lt;span class="nx">tags&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">{}&lt;/span> &lt;span class="o">-&amp;gt;&lt;/span> &lt;span class="kc">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">created&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_container_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;container&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">dns_name_label_reuse_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Unsecure&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">exposed_port&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">fqdn&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">ip_address&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">ip_address_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Public&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;some-vm-stg&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">network_profile_id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">os_type&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Linux&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">resource_group_name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;some-vm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">restart_policy&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;Always&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">container&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">commands&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">cpu_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">image&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">memory&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mf">1.5&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">memory_limit&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;some-vm-stg&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">image_registry_credential&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">server&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">username&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;...&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">created&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="s2">&amp;#34;azurerm_resource_group&amp;#34;&lt;/span> &lt;span class="s2">&amp;#34;rg&amp;#34;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">id&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">known&lt;/span> &lt;span class="nx">after&lt;/span> &lt;span class="nx">apply&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">location&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;koreacentral&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">+&lt;/span> &lt;span class="nx">name&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="s2">&amp;#34;some-vm&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Plan&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">add&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">change&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">destroy&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">─────────────────────────────────────────────────────────────────────────────────────────────────────────────────&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Note&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">You&lt;/span> &lt;span class="nx">didn&lt;/span>&lt;span class="s1">&amp;#39;t use the -out option to save this plan, so Terraform can&amp;#39;&lt;/span>&lt;span class="nx">t&lt;/span> &lt;span class="nx">guarantee&lt;/span> &lt;span class="nx">to&lt;/span> &lt;span class="nx">take&lt;/span> &lt;span class="nx">exactly&lt;/span> &lt;span class="nx">these&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">actions&lt;/span> &lt;span class="k">if&lt;/span> &lt;span class="nx">you&lt;/span> &lt;span class="nx">run&lt;/span> &lt;span class="s2">&amp;#34;terraform apply&amp;#34;&lt;/span> &lt;span class="nx">now&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>음…. 기존 리소스를 모두 삭제하고 새로 만들겠다고 합니다. 분명 terraform.tfstate 파일을 가져와서 backend로 이관 했음에도 불구하고 삭제 하겠다는 군요! 문제가 되는 부분이 바로 이 부분입니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">destroyed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">because&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="nx">is&lt;/span> &lt;span class="nx">not&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">configuration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">destroyed&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="err">#&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">because&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="nx">is&lt;/span> &lt;span class="nx">not&lt;/span> &lt;span class="k">in&lt;/span> &lt;span class="nx">configuration&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그러니까 현재 작성중인 Terraform 코드에 &lt;strong>azurerm_container_group.container&lt;/strong>, &lt;strong>azurerm_resource_group.rg&lt;/strong> 가 없다는 말입니다!&lt;/p>
+&lt;p>지금 우리는 모듈을 정의하고 모듈을 사용해서 Terraform 코드를 작성했죠? 그래서 사실 각 리소스의 이름은 이렇게 변경됩니다.&lt;/p>
+&lt;ul>
+&lt;li>azurerm_container_group.container → module.some-vm.azurerm_container_group.container&lt;/li>
+&lt;li>azurerm_resource_group.rg → module.some-vm.azurerm_resource_group.rg&lt;/li>
+&lt;/ul>
+&lt;p>따라서 기존 상태에 있는 리소스를 새 이름으로 import 해주고 기존 리소스는 상태에서 제거해야 합니다! 😤
+우선 import로 기존 리소스를 새로운 이름으로 가져옵니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="kr">import&lt;/span> &lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="nx">subscriptions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">xxxxxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxxxxxxxxxx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">resourceGroups&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">리소스&lt;/span> &lt;span class="nx">그룹&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">providers&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">Microsoft&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">ContainerInstance&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">containerGroups&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">리소스&lt;/span> &lt;span class="nx">이름&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Import&lt;/span> &lt;span class="nx">successful&lt;/span>&lt;span class="o">!&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">The&lt;/span> &lt;span class="nx">resources&lt;/span> &lt;span class="nx">that&lt;/span> &lt;span class="nx">were&lt;/span> &lt;span class="nx">imported&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">shown&lt;/span> &lt;span class="nx">above&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">These&lt;/span> &lt;span class="nx">resources&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">now&lt;/span> &lt;span class="k">in&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">your&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">henceforth&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">managed&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">Terraform&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="kr">import&lt;/span> &lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span> &lt;span class="o">/&lt;/span>&lt;span class="nx">subscriptions&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">xxxxxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxx&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">xxxxxxxxxxxx&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="nx">resourceGroups&lt;/span>&lt;span class="o">/&lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="nx">리소스&lt;/span> &lt;span class="nx">그룹&lt;/span>&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Import&lt;/span> &lt;span class="nx">successful&lt;/span>&lt;span class="o">!&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">The&lt;/span> &lt;span class="nx">resources&lt;/span> &lt;span class="nx">that&lt;/span> &lt;span class="nx">were&lt;/span> &lt;span class="nx">imported&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">shown&lt;/span> &lt;span class="nx">above&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">These&lt;/span> &lt;span class="nx">resources&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">now&lt;/span> &lt;span class="k">in&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">your&lt;/span> &lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="nx">will&lt;/span> &lt;span class="nx">henceforth&lt;/span> &lt;span class="nx">be&lt;/span> &lt;span class="nx">managed&lt;/span> &lt;span class="nx">by&lt;/span> &lt;span class="nx">Terraform&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>다음으로 현재 상태에 있는 리소스 이름을 목록으로 확인해보고 기존 항목을 삭제합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">list&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">rm&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Removed&lt;/span> &lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Successfully&lt;/span> &lt;span class="nx">removed&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="nx">instance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">).&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">rm&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Removed&lt;/span> &lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Successfully&lt;/span> &lt;span class="nx">removed&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="nx">resource&lt;/span> &lt;span class="nx">instance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">s&lt;/span>&lt;span class="p">).&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">state&lt;/span> &lt;span class="nx">list&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_registry&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">acr&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_container_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">container&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">module&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">some&lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="nx">vm&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">azurerm_resource_group&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">rg&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 마지막으로 plan 을 실행해 봅시다!&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-jsx" data-lang="jsx">&lt;span class="line">&lt;span class="cl">&lt;span class="err">❯&lt;/span> &lt;span class="nx">terraform&lt;/span> &lt;span class="nx">plan&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">No&lt;/span> &lt;span class="nx">changes&lt;/span>&lt;span class="p">.&lt;/span> &lt;span class="nx">Your&lt;/span> &lt;span class="nx">infrastructure&lt;/span> &lt;span class="nx">matches&lt;/span> &lt;span class="nx">the&lt;/span> &lt;span class="nx">configuration&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">Terraform&lt;/span> &lt;span class="nx">has&lt;/span> &lt;span class="nx">compared&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">real&lt;/span> &lt;span class="nx">infrastructure&lt;/span> &lt;span class="nx">against&lt;/span> &lt;span class="nx">your&lt;/span> &lt;span class="nx">configuration&lt;/span> &lt;span class="nx">and&lt;/span> &lt;span class="nx">found&lt;/span> &lt;span class="nx">no&lt;/span> &lt;span class="nx">differences&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">so&lt;/span> &lt;span class="nx">no&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">changes&lt;/span> &lt;span class="nx">are&lt;/span> &lt;span class="nx">needed&lt;/span>&lt;span class="p">.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Wow! 이제 드디어 import 해온 상태와 현재 제가 원하는 상태가 일치합니다! 그리고 모듈화도 성공했죠! 👍&lt;/p>
+&lt;blockquote>
+&lt;p>여기서는 간단한 예시를 위해서 terraform을 이용했지만, terragrunt를 사용하면 위처럼 이름을 바꾸는 임포트 작업을 할 필요가 없습니다. 모듈을 사용할 때도 원래 이름 그대로 가져오기 때문입니다! 😊&lt;/p>&lt;/blockquote>
+&lt;h1 id="참고자료">참고자료&lt;/h1>
+&lt;ul>
+&lt;li>terraform up and running 3rd edition&lt;/li>
+&lt;li>&lt;a href="https://jakewalsh.co.uk/testing-terraform-import-in-v-1-5-0-with-azure-resources/">Testing Terraform Import in v.1.5.0+ with Azure Resources&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h1 id="license">License&lt;/h1>
+&lt;p>&lt;a href="https://creativecommons.org/licenses/by-nc-nd/2.0/kr/">저작자표시-비영리-변경금지 2.0 대한민국 (CC BY-NC-ND 2.0 KR)&lt;/a>&lt;/p></content></item></channel></rss>

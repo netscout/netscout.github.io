@@ -1,0 +1,477 @@
+<!doctype html><html lang=ko><head><title>Typescript: Decorator Metadata :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Typescript는 5.0 부터 ECMAScript의 표준에 발맞춘 Decorator를 지원하고 있습니다. 얼마전에 이와 관련된 글을 쓴적이 있었죠! 그런데 ECMAScript의 표준에는 이 데코레이터를 좀 더 강력하게 사용할 수 있는 방법도 같이 제시되고 …"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/typescript-decorator-metadata/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="Typescript: Decorator Metadata"><meta property="og:description" content="Typescript는 5.0 부터 ECMAScript의 표준에 발맞춘 Decorator를 지원하고 있습니다. 얼마전에 이와 관련된 글을 쓴적이 있었죠! 그런데 ECMAScript의 표준에는 이 데코레이터를 좀 더 강력하게 사용할 수 있는 방법도 같이 제시되고 …"><meta property="og:url" content="https://netscout.github.io/posts/typescript-decorator-metadata/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2025-09-06 23:42:51 +0000 UTC"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/typescript-decorator-metadata/>Typescript: Decorator Metadata</a></h1><div class=post-meta><time class=post-date>2025-09-06</time>
+<span class=post-reading-time>10 분 (1988 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/TypeScript/>TypeScript</a>&nbsp;
+#<a href=https://netscout.github.io/tags/Decorator/>Decorator</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#개요>개요</a></li><li><a href=#아주-간단한-예제>아주 간단한 예제</a></li><li><a href=#의존성-주입dependency-injection-예제>의존성 주입(Dependency Injection) 예제</a></li><li><a href=#데코레이터-메타데이터를-이용해서-의존성-주입-정보를-확인해보자>데코레이터 메타데이터를 이용해서 의존성 주입 정보를 확인해보자</a></li><li><a href=#reflect-metadata-와의-비교>reflect-metadata 와의 비교</a></li><li><a href=#참고자료>참고자료</a></li></ul></nav></div><div class=post-content><div><h2 id=개요>개요<a href=#개요 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Typescript는 5.0 부터 ECMAScript의 표준에 발맞춘 Decorator를 지원하고 있습니다. 얼마전에 <a href=https://raw.githubusercontent.com/netscout/typescript-studies/main/src/decorator/README.md>이와 관련된 글</a>을 쓴적이 있었죠! 그런데 ECMAScript의 표준에는 이 <a href=https://github.com/tc39/proposal-decorator-metadata>데코레이터를 좀 더 강력하게 사용할 수 있는 방법</a>도 같이 제시되고 있습니다. 데코레이터의 메타데이터를 이용해서 데코레이터가 감싸고 있는 클래스의 정보를 추출하는 메타 프로그래밍을 지원합니다. Typescript 역시 5.2 버전 부터 이 기능을 지원하고 있습니다.</p><h2 id=아주-간단한-예제>아주 간단한 예제<a href=#아주-간단한-예제 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>그럼 이 데코레이터 메타데이터가 뭔지 간단한 예제를 통해서 확인해보겠습니다. 우선 데코레이터 메타데이터를 사용하기 위해서는 다음과 같이 <code>tsconfig.json</code> 파일을 설정해야 합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;compilerOptions&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;target&#34;</span><span class=p>:</span> <span class=s2>&#34;es2022&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;lib&#34;</span><span class=p>:</span> <span class=p>[</span><span class=s2>&#34;es2022&#34;</span><span class=p>,</span> <span class=s2>&#34;esnext.decorators&#34;</span><span class=p>,</span> <span class=s2>&#34;dom&#34;</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;experimentalDecorators&#34;</span><span class=p>:</span> <span class=kc>false</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;useDefineForClassFields&#34;</span><span class=p>:</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 아직 node.js가 데코레이터 메타데이터를 지원하지 않기 때문에 다음과 같이 코드에 polyfill을 추가해야 합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-ts data-lang=ts><span class=line><span class=cl><span class=c1>// 프로그램의 진입점에 한 번만 선언하면 됩니다!
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>(</span><span class=nx>Symbol</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>metadata</span> <span class=o>??=</span> <span class=nx>Symbol</span><span class=p>(</span><span class=s2>&#34;Symbol.metadata&#34;</span><span class=p>);</span>
+</span></span></code></pre></div><p>이제 간단하게 코드를 작성해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-ts data-lang=ts><span class=line><span class=cl><span class=c1>// src/decorator-metadata/src/simple-decorator-metadata.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// Symbol.metadata polyfill
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>(</span><span class=nx>Symbol</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>metadata</span> <span class=o>??=</span> <span class=nx>Symbol</span><span class=p>(</span><span class=s2>&#34;Symbol.metadata&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 데코레이터 Context 인터페이스
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>interface</span> <span class=nx>Context</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>name</span>: <span class=kt>string</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>metadata</span>: <span class=kt>Record</span><span class=p>&lt;</span><span class=nt>PropertyKey</span><span class=p>,</span> <span class=na>unknown</span><span class=p>&gt;;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 데코레이터 메타데이터에 필드의 이름을 추가하는 데코레이터
+</span></span></span><span class=line><span class=cl><span class=cm> * @param _target 데코레이터가 적용된 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> * @param context 데코레이터 컨텍스트
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>setMetadata</span><span class=p>(</span><span class=nx>_target</span>: <span class=kt>any</span><span class=p>,</span> <span class=nx>context</span>: <span class=kt>Context</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 데코레이터 메타데이터에 해당 필드의 이름을 추가합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>context</span><span class=p>.</span><span class=nx>metadata</span><span class=p>[</span><span class=nx>context</span><span class=p>.</span><span class=nx>name</span><span class=p>]</span> <span class=o>=</span> <span class=kc>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>SomeClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>@setMetadata</span>
+</span></span><span class=line><span class=cl>  <span class=nx>foo</span> <span class=o>=</span> <span class=mi>123</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kd>@setMetadata</span>
+</span></span><span class=line><span class=cl>  <span class=nx>accessor</span> <span class=nx>bar</span> <span class=o>=</span> <span class=s2>&#34;hello!&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kd>@setMetadata</span>
+</span></span><span class=line><span class=cl>  <span class=nx>baz() {</span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 데코레이터 메타데이터를 확인합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>ourMetadata</span> <span class=o>=</span> <span class=nx>SomeClass</span><span class=p>[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=nx>JSON</span><span class=p>.</span><span class=nx>stringify</span><span class=p>(</span><span class=nx>ourMetadata</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=c1>// 출력: { &#34;bar&#34;: true, &#34;baz&#34;: true, &#34;foo&#34;: true }
+</span></span></span></code></pre></div><p>이 코드는 말이죠:</p><ul><li>코드 최상단에 <code>Symbol.metadata</code>를 지원하기 위한 polyfill을 추가했습니다.</li><li>setMetadata 데코레이터 함수를 정의했습니다.</li><li>setMetadata를 호출하면 데코레이터 메타데이터에 &lsquo;해당 필드의 이름&rsquo; = true 를 추가합니다.</li><li>데코레이터 메타데이터는 <code>각 클래스 별로 고유한 객체</code>이며, <code>Symbol.metadata</code> 을 통해 접근할 수 있습니다.</li></ul><p>이 코드를 실행하면 다음과 같은 결과가 출력됩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx ts-node ./src/simple-decorator-metadata.ts
+</span></span><span class=line><span class=cl><span class=o>{</span><span class=s2>&#34;bar&#34;</span>:true,<span class=s2>&#34;baz&#34;</span>:true,<span class=s2>&#34;foo&#34;</span>:true<span class=o>}</span>
+</span></span></code></pre></div><p>SomeClass의 foo, bar, baz 필드에 setMetadata 데코레이터가 적용되었기 때문에 데코레이터 메타데이터에 foo, bar, baz 필드의 이름이 추가된 걸 확인할 수 있습니다.</p><p>이제 조금 더 실용적인 예제를 살펴볼까요?</p><h2 id=의존성-주입dependency-injection-예제>의존성 주입(Dependency Injection) 예제<a href=#의존성-주입dependency-injection-예제 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>일단 데코레이터를 사용해서 의존성 주입(Dependency Injection)을 구현해보겠습니다.</p><blockquote><p>이 예제는 테스트를 위한 구현이기 때문에 싱글턴 패턴, 순환 참조 탐지 등의 기능을 구현하지 않습니다. 실제 서비스에서는 <a href=https://github.com/inversify/InversifyJS>InversifyJS</a> 같은 의존성 주입 라이브러리를 사용하는 것이 좋습니다.</p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-ts data-lang=ts><span class=line><span class=cl><span class=c1>// src/decorator-metadata/src/dependency-injection.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * Injectable 데코레이터
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스를 DI 컨테이너에 등록합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param token 클래스 이름
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 데코레이터 함수
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>Injectable</span><span class=p>(</span><span class=nx>token?</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=nx>target</span>: <span class=kt>any</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>registry</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// token: Logger, target.name: LoggerService, target: LoggerService 클래스
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>registry</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>token</span> <span class=o>||</span> <span class=nx>target</span><span class=p>.</span><span class=nx>name</span><span class=p>,</span> <span class=nx>target</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 환경에 상관없이 사용할 수 있도록 globalThis에 글로벌 컨테이너를 설정합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span> <span class=o>=</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span> <span class=o>||</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 글로벌 컨테이너에 등록합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>key</span><span class=p>,</span> <span class=nx>value</span><span class=p>]</span> <span class=k>of</span> <span class=nx>registry</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>value</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * Inject 데코레이터
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스 필드에 DI로 객체의 인스턴스를 주입합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param token 클래스 이름
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 데코레이터 함수
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>Inject</span><span class=p>(</span><span class=nx>token</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=nx>target</span>: <span class=kt>any</span><span class=p>,</span> <span class=nx>context</span>: <span class=kt>ClassFieldDecoratorContext</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=k>this</span><span class=o>:</span> <span class=kt>any</span><span class=p>,</span> <span class=nx>initialValue</span>: <span class=kt>any</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// Inject 데코레이터를 전달되는 token(ex: Logger)에 해당하는 서비스 클래스를 찾습니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=kr>const</span> <span class=nx>container</span> <span class=o>=</span> <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>serviceClass</span> <span class=o>=</span> <span class=nx>container</span><span class=p>.</span><span class=kr>get</span><span class=p>(</span><span class=nx>token</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>serviceClass</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>throw</span> <span class=k>new</span> <span class=nb>Error</span><span class=p>(</span><span class=sb>`컨테이너에서 </span><span class=si>${</span><span class=nx>token</span><span class=si>}</span><span class=sb> 클래스를 찾을 수 없습니다.`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>new</span> <span class=nx>serviceClass</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * LoggerService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>LoggerService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>constructor</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;LoggerService constructor&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>log</span><span class=p>(</span><span class=nx>message</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[LOG] </span><span class=si>${</span><span class=k>new</span> <span class=nb>Date</span><span class=p>().</span><span class=nx>toISOString</span><span class=p>()</span><span class=si>}</span><span class=sb>: </span><span class=si>${</span><span class=nx>message</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * DatabaseService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;Database&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>DatabaseService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>logger</span><span class=o>!:</span> <span class=nx>LoggerService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>query</span><span class=p>(</span><span class=nx>sql</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>this</span><span class=p>.</span><span class=nx>logger</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Executing: </span><span class=si>${</span><span class=nx>sql</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>{</span> <span class=nx>rows</span><span class=o>:</span> <span class=p>[]</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * UserService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;UserService&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>UserService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Database&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>db</span><span class=o>!:</span> <span class=nx>DatabaseService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>logger</span><span class=o>!:</span> <span class=nx>LoggerService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>getUser</span><span class=p>(</span><span class=nx>id</span>: <span class=kt>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>this</span><span class=p>.</span><span class=nx>logger</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Getting user </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=k>this</span><span class=p>.</span><span class=nx>db</span><span class=p>.</span><span class=nx>query</span><span class=p>(</span><span class=sb>`SELECT * FROM users WHERE id = </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 사용 예제
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>userService</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>UserService</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=nx>userService</span><span class=p>.</span><span class=nx>getUser</span><span class=p>(</span><span class=mi>123</span><span class=p>);</span>
+</span></span></code></pre></div><p>조금 복잡하게 느껴집니다&mldr; 우선 실행 순서를 정리해보면 다음과 같습니다.</p><pre class=mermaid>graph TB
+    subgraph ProcessFlow[&#34;🔄 처리 흐름&#34;]
+        Step1[&#34;1️⃣ 클래스 정의 시&lt;br/&gt;데코레이터 실행&#34;]
+        Step2[&#34;2️⃣ 컨테이너에&lt;br/&gt;토큰-클래스 매핑 저장&#34;]
+        Step3[&#34;3️⃣ 인스턴스 생성 시&lt;br/&gt;의존성 자동 해결&#34;]
+        Step4[&#34;4️⃣ 재귀적으로&lt;br/&gt;모든 의존성 주입&#34;]
+    end
+
+    %% 처리 흐름
+    Step1 --&gt; Step2
+    Step2 --&gt; Step3
+    Step3 --&gt; Step4</pre><ol><li>클래스에 정의된 Injectable 데코레이터에 token(ex: Logger)과 클래스(ex: LoggerService)가 전달됩니다.</li><li>Injectable 데코레이터는 글로벌 DI 컨테이너에 token-클래스 매핑을 저장합니다.</li><li>그 다음 Inject 데코레이터에 token(ex: Logger)이 전달되면, 글로벌 DI 컨테이너에서 token에 해당하는 클래스를 찾아서 인스턴스를 생성하여 주입합니다.</li><li>의존성 주입은 제귀적으로 발생합니다.(UserService -> DatabaseService -> LoggerService)</li></ol><p>전체 구조를 도식화 해보면 다음과 같습니다.</p><pre class=mermaid>graph TB
+    subgraph GlobalContainer[&#34;🌐 글로벌 DI 컨테이너&#34;]
+        DIMap[&#34;globalThis.diContainer&lt;br/&gt;Map&amp;lt;string, Constructor&amp;gt;&#34;]
+        TokenLogger[&#34;&#39;Logger&#39; ➜ LoggerService&#34;]
+        TokenDatabase[&#34;&#39;Database&#39; ➜ DatabaseService&#34;]
+        TokenUser[&#34;&#39;UserService&#39; ➜ UserService&#34;]
+    end
+
+    subgraph DecoratorSystem[&#34;🏷️ 데코레이터&#34;]
+        InjectableDecorator[&#34;@Injectable(token?)&lt;br/&gt;📝 클래스 등록 데코레이터&lt;br/&gt;• 토큰 생성&lt;br/&gt;• 컨테이너 저장&#34;]
+        InjectDecorator[&#34;@Inject(token)&lt;br/&gt;💉 의존성 주입 데코레이터&lt;br/&gt;• 컨테이너 조회&lt;br/&gt;• 인스턴스 생성&#34;]
+    end
+
+    subgraph ServiceLayer[&#34;🔧 서비스 계층&#34;]
+        Logger[&#34;🟢 LoggerService&lt;br/&gt;@Injectable(&#39;Logger&#39;)&lt;br/&gt;────────────&lt;br/&gt;+ constructor()&lt;br/&gt;+ log(message: string)&#34;]
+
+        Database[&#34;🟡 DatabaseService&lt;br/&gt;@Injectable(&#39;Database&#39;)&lt;br/&gt;@Inject(&#39;Logger&#39;) logger&lt;br/&gt;────────────&lt;br/&gt;+ query(sql: string)&#34;]
+
+        User[&#34;🔴 UserService&lt;br/&gt;@Injectable(&#39;UserService&#39;)&lt;br/&gt;@Inject(&#39;Database&#39;) db&lt;br/&gt;@Inject(&#39;Logger&#39;) logger&lt;br/&gt;────────────&lt;br/&gt;+ getUser(id: number)&#34;]
+    end
+
+    subgraph RuntimeExecution[&#34;⚡ 실행 시점&#34;]
+        ClientCode[&#34;📱 클라이언트 코드&lt;br/&gt;const userService = new UserService()&lt;br/&gt;userService.getUser(123)&#34;]
+    end
+
+
+
+    %% 등록 과정
+    InjectableDecorator -.-&gt;|&#34;🏷️ 클래스에 데코레이터 추가&lt;br/&gt;토큰 생성 및 등록 준비&#34;| Logger
+    InjectableDecorator -.-&gt;|&#34;🏷️ 클래스에 데코레이터 추가&lt;br/&gt;토큰 생성 및 등록 준비&#34;| Database
+    InjectableDecorator -.-&gt;|&#34;🏷️ 클래스에 데코레이터 추가&lt;br/&gt;토큰 생성 및 등록 준비&#34;| User
+
+    %% 컨테이너 저장
+    Logger -.-&gt;|&#34;💾 &#39;Logger&#39; 토큰으로&lt;br/&gt;LoggerService 클래스 저장&#34;| TokenLogger
+    Database -.-&gt;|&#34;💾 &#39;Database&#39; 토큰으로&lt;br/&gt;DatabaseService 클래스 저장&#34;| TokenDatabase
+    User -.-&gt;|&#34;💾 &#39;UserService&#39; 토큰으로&lt;br/&gt;UserService 클래스 저장&#34;| TokenUser
+
+    %% 의존성 관계
+    Database --&gt;|&#34;🔗 DatabaseService.logger 필드&lt;br/&gt;LoggerService 인스턴스 필요&#34;| Logger
+    User --&gt;|&#34;🔗 UserService.db 필드&lt;br/&gt;DatabaseService 인스턴스 필요&#34;| Database
+    User --&gt;|&#34;🔗 UserService.logger 필드&lt;br/&gt;LoggerService 인스턴스 필요&#34;| Logger
+
+    %% 주입 과정
+    InjectDecorator -.-&gt;|&#34;🔍 토큰으로 컨테이너 검색&lt;br/&gt;클래스 찾기 및 인스턴스 생성&#34;| DIMap
+
+    %% 실행 과정
+    ClientCode --&gt;|&#34;🚀 new UserService() 호출&lt;br/&gt;의존성 주입 트리거&#34;| User
+
+    %% 스타일링
+    classDef container fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef decorator fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef service fill:#e8f5e8,stroke:#4caf50,stroke-width:2px,color:#000
+    classDef client fill:#fce4ec,stroke:#e91e63,stroke-width:2px,color:#000
+    classDef process fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#000
+
+    class DIMap,TokenLogger,TokenDatabase,TokenUser container
+    class InjectableDecorator,InjectDecorator decorator
+    class Logger,Database,User service
+    class ClientCode client
+    class Step1,Step2,Step3,Step4 process</pre><p>실행 결과는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx ts-node ./src/dependency-injection.ts
+</span></span><span class=line><span class=cl>LoggerService constructor
+</span></span><span class=line><span class=cl>LoggerService constructor
+</span></span><span class=line><span class=cl><span class=o>[</span>LOG<span class=o>]</span> 2025-09-06T00:30:24.749Z: Getting user <span class=m>123</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>LOG<span class=o>]</span> 2025-09-06T00:30:24.750Z: Executing: SELECT * FROM users WHERE <span class=nv>id</span> <span class=o>=</span> <span class=m>123</span>
+</span></span></code></pre></div><p>의존성 주입이 잘 되고 있군요! 그리고 <code>LoggerService constructor</code>가 두번 출력되는 것에서 매번 의존성 주입이 발생할 때 마다 새로운 객체가 생성된 다는 걸 확인할 수 있습니다. 그런데 아직 데코레이터 메타데이터는 보이지 않습니다&mldr; 이제 데코레이터 메타데이터를 이용해서 의존성 주입 정보를 더 자세히 확인할 수 있도록 해보겠습니다.</p><h2 id=데코레이터-메타데이터를-이용해서-의존성-주입-정보를-확인해보자>데코레이터 메타데이터를 이용해서 의존성 주입 정보를 확인해보자<a href=#데코레이터-메타데이터를-이용해서-의존성-주입-정보를-확인해보자 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>앞선 예제에 데코레이터 메타데이터를 추가하여 다음과 같이 작성해보겠습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-ts data-lang=ts><span class=line><span class=cl><span class=c1>// src/decorator-metadata/src/di-with-metadata.ts
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// Symbol.metadata 를 지원하기 위한 polyfill
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>(</span><span class=nx>Symbol</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>metadata</span> <span class=o>??=</span> <span class=nx>Symbol</span><span class=p>(</span><span class=s2>&#34;Symbol.metadata&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 데코레이터 메타데이터 사용할 심볼
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>INJECTION_TOKENS_KEY</span> <span class=o>=</span> <span class=nx>Symbol</span><span class=p>(</span><span class=s2>&#34;injection-tokens&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * Injectable 데코레이터
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스를 DI 컨테이너에 등록합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param token 클래스 이름
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 데코레이터 함수
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>Injectable</span><span class=p>(</span><span class=nx>token?</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=nx>target</span>: <span class=kt>any</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>registry</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// token: Logger, target.name: LoggerService, target: LoggerService 클래스
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>registry</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>token</span> <span class=o>||</span> <span class=nx>target</span><span class=p>.</span><span class=nx>name</span><span class=p>,</span> <span class=nx>target</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 환경에 상관없이 사용할 수 있도록 globalThis에 글로벌 컨테이너를 설정합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span> <span class=o>=</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span> <span class=o>||</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 글로벌 컨테이너에 등록합니다.
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>key</span><span class=p>,</span> <span class=nx>value</span><span class=p>]</span> <span class=k>of</span> <span class=nx>registry</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>value</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * Inject 데코레이터
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스 필드에 DI로 객체의 인스턴스를 주입합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param token 클래스 이름
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 데코레이터 함수
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>Inject</span><span class=p>(</span><span class=nx>token</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=nx>target</span>: <span class=kt>any</span><span class=p>,</span> <span class=nx>context</span>: <span class=kt>ClassFieldDecoratorContext</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>fieldName</span> <span class=o>=</span> <span class=nx>context</span><span class=p>.</span><span class=nx>name</span> <span class=kr>as</span> <span class=kt>string</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n=== &#39;</span><span class=si>${</span><span class=nx>fieldName</span><span class=si>}</span><span class=sb>&#39; 필드에 @Inject(&#39;</span><span class=si>${</span><span class=nx>token</span><span class=si>}</span><span class=sb>&#39;) 설정 중 ===`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>metadata</span> <span class=o>=</span> <span class=nx>context</span><span class=p>.</span><span class=nx>metadata</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 메타데이터 객체에 injection tokens 정보가 없으면 생성
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>metadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>]</span> <span class=o>??=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// TypeScript의 메타데이터에 필드명과 토큰 매핑 저장
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>injectionTokens</span> <span class=o>=</span> <span class=nx>metadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>]</span> <span class=kr>as</span> <span class=nx>Map</span><span class=o>&lt;</span>
+</span></span><span class=line><span class=cl>      <span class=kt>string</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=kt>string</span>
+</span></span><span class=line><span class=cl>    <span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>injectionTokens</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>fieldName</span><span class=p>,</span> <span class=nx>token</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;→ 메타데이터에 저장된 의존성 주입 정보:&#34;</span><span class=p>,</span> <span class=nx>injectionTokens</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kd>function</span> <span class=p>(</span><span class=k>this</span><span class=o>:</span> <span class=kt>any</span><span class=p>,</span> <span class=nx>initialValue</span>: <span class=kt>any</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>container</span> <span class=o>=</span> <span class=p>(</span><span class=nx>globalThis</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>).</span><span class=nx>diContainer</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>serviceClass</span> <span class=o>=</span> <span class=nx>container</span><span class=p>.</span><span class=kr>get</span><span class=p>(</span><span class=nx>token</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>serviceClass</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>throw</span> <span class=k>new</span> <span class=nb>Error</span><span class=p>(</span><span class=sb>`컨테이너에서 </span><span class=si>${</span><span class=nx>token</span><span class=si>}</span><span class=sb> 클래스를 찾을 수 없습니다.`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>new</span> <span class=nx>serviceClass</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 메타데이터를 확인하기 위한 유틸리티 함수들
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스 인스턴스에서 TypeScript 메타데이터로부터 DI 정보를 확인합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param instance 클래스 인스턴스
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns DI로 주입된 정보
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>getInjectionInfo</span><span class=p>(</span><span class=nx>instance</span>: <span class=kt>object</span><span class=p>)</span><span class=o>:</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;</span> <span class=o>|</span> <span class=kc>undefined</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=kr>constructor</span> <span class=o>=</span> <span class=nx>instance</span><span class=p>.</span><span class=kr>constructor</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>metadata</span> <span class=o>=</span> <span class=p>(</span><span class=kr>constructor</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>)[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>metadata</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>undefined</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nx>metadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>]</span> <span class=kr>as</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스의 생성자를 통해 TypeScript 메타데이터로부터 DI 정보를 확인합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param constructor 클래스 생성자
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns DI로 주입된 정보
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>getClassInjectionInfo</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>  <span class=kr>constructor</span><span class=o>:</span> <span class=nb>Function</span>
+</span></span><span class=line><span class=cl><span class=p>)</span><span class=o>:</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;</span> <span class=o>|</span> <span class=kc>undefined</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>metadata</span> <span class=o>=</span> <span class=p>(</span><span class=kr>constructor</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>)[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>metadata</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>undefined</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nx>metadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>]</span> <span class=kr>as</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>string</span><span class=p>,</span> <span class=na>string</span><span class=p>&gt;;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스 인스턴스에서 TypeScript 메타데이터의 DI 정보를 디버깅합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param instance 클래스 인스턴스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>debugInstance</span><span class=p>(</span><span class=nx>instance</span>: <span class=kt>object</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>className</span> <span class=o>=</span> <span class=nx>instance</span><span class=p>.</span><span class=kr>constructor</span><span class=p>.</span><span class=nx>name</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>injections</span> <span class=o>=</span> <span class=nx>getInjectionInfo</span><span class=p>(</span><span class=nx>instance</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n=== </span><span class=si>${</span><span class=nx>className</span><span class=si>}</span><span class=sb> 메타데이터의 의존성 주입 정보 ===`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>injections</span> <span class=o>&amp;&amp;</span> <span class=nx>injections</span><span class=p>.</span><span class=nx>size</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>[</span><span class=nx>field</span><span class=p>,</span> <span class=nx>token</span><span class=p>]</span> <span class=k>of</span> <span class=nx>injections</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`  </span><span class=si>${</span><span class=nx>field</span><span class=si>}</span><span class=sb> &lt;- </span><span class=si>${</span><span class=nx>token</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;  메타데이터에 의존성 주입 정보가 없습니다.&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 클래스의 전체 TypeScript 메타데이터 구조를 확인합니다.
+</span></span></span><span class=line><span class=cl><span class=cm> * @param constructor 클래스 생성자
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>inspectMetadata</span><span class=p>(</span><span class=kr>constructor</span><span class=o>:</span> <span class=nb>Function</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>metadata</span> <span class=o>=</span> <span class=p>(</span><span class=kr>constructor</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>)[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>className</span> <span class=o>=</span> <span class=kr>constructor</span><span class=p>.</span><span class=nx>name</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n=== </span><span class=si>${</span><span class=nx>className</span><span class=si>}</span><span class=sb> 메타데이터 구조 ===`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>metadata</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;  메타데이터가 없습니다.&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>injectionTokens</span> <span class=o>=</span> <span class=nx>metadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>injectionTokens</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;  의존성 주입 토큰:&#34;</span><span class=p>,</span> <span class=nx>injectionTokens</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;  의존성 주입 토큰이 없습니다.&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * LoggerService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>LoggerService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>log</span><span class=p>(</span><span class=nx>message</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[LOG] </span><span class=si>${</span><span class=k>new</span> <span class=nb>Date</span><span class=p>().</span><span class=nx>toISOString</span><span class=p>()</span><span class=si>}</span><span class=sb>: </span><span class=si>${</span><span class=nx>message</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * DatabaseService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;Database&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>DatabaseService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>logger</span><span class=o>!:</span> <span class=nx>LoggerService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>query</span><span class=p>(</span><span class=nx>sql</span>: <span class=kt>string</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>this</span><span class=p>.</span><span class=nx>logger</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Executing: </span><span class=si>${</span><span class=nx>sql</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>{</span> <span class=nx>rows</span><span class=o>:</span> <span class=p>[]</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * UserService 클래스
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>@Injectable</span><span class=p>(</span><span class=s2>&#34;UserService&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kr>class</span> <span class=nx>UserService</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Database&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>db</span><span class=o>!:</span> <span class=nx>DatabaseService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kd>@Inject</span><span class=p>(</span><span class=s2>&#34;Logger&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=kr>private</span> <span class=nx>logger</span><span class=o>!:</span> <span class=nx>LoggerService</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>getUser</span><span class=p>(</span><span class=nx>id</span>: <span class=kt>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>this</span><span class=p>.</span><span class=nx>logger</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Getting user </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=k>this</span><span class=p>.</span><span class=nx>db</span><span class=p>.</span><span class=nx>query</span><span class=p>(</span><span class=sb>`SELECT * FROM users WHERE id = </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// DEMO: 데코레이터 메타데이터를 통한 DI 정보 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;=== 데코레이터 메타데이터를 통한 DI 정보 확인 ===&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 전체 메타데이터 구조 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>inspectMetadata</span><span class=p>(</span><span class=nx>LoggerService</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>inspectMetadata</span><span class=p>(</span><span class=nx>DatabaseService</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>inspectMetadata</span><span class=p>(</span><span class=nx>UserService</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 생성된 클래스에서 TypeScript 메타데이터의 DI 정보 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>userService</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>UserService</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=nx>debugInstance</span><span class=p>(</span><span class=nx>userService</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>debugInstance</span><span class=p>(</span><span class=k>new</span> <span class=nx>DatabaseService</span><span class=p>());</span>
+</span></span><span class=line><span class=cl><span class=nx>debugInstance</span><span class=p>(</span><span class=k>new</span> <span class=nx>LoggerService</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 클래스를 통해 TypeScript 메타데이터의 DI 정보 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>userInjections</span> <span class=o>=</span> <span class=nx>getClassInjectionInfo</span><span class=p>(</span><span class=nx>UserService</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;\nUserService 메타데이터의 의존성 주입 정보:&#34;</span><span class=p>,</span> <span class=nx>userInjections</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 메타데이터에 직접 접근해보기
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;\n=== 메타데이터에 직접 접근 ===&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>userMetadata</span> <span class=o>=</span> <span class=p>(</span><span class=nx>UserService</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>)[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;UserService 메타데이터 객체:&#34;</span><span class=p>,</span> <span class=nx>userMetadata</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>  <span class=s2>&#34;UserService 의존성 주입 토큰:&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nx>userMetadata</span><span class=p>[</span><span class=nx>INJECTION_TOKENS_KEY</span><span class=p>]</span>
+</span></span><span class=line><span class=cl><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;\n=== 서비스 실행 ===&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>userService</span><span class=p>.</span><span class=nx>getUser</span><span class=p>(</span><span class=mi>123</span><span class=p>);</span>
+</span></span></code></pre></div><p>코드의 최상단에 Symbol.metadata를 지원하기 위한 polyfill이 추가되었습니다. 그리고 각 클래스의 데코레이터 메타데이터에 의존성 주입 정보를 저장하는 WeakMap을 선언했습니다.</p><p>그리고 Inject 데코레이터에 메타데이터 객체를 이용하여 특정 클래스에서 발생한 의존성 주입 정보를 저장하도록 했습니다. 그리고 여러 헬퍼 함수를 통해 메타데이터의 정보를 확인할 수 있도록 했습니다. 해당 코드를 보시면 다음과 같이 특정 클래스의 데코레이터 메타데이터를 불러오고 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-ts data-lang=ts><span class=line><span class=cl><span class=kr>const</span> <span class=nx>metadata</span> <span class=o>=</span> <span class=p>(</span><span class=nx>UserService</span> <span class=kr>as</span> <span class=kt>any</span><span class=p>)[</span><span class=nx>Symbol</span><span class=p>.</span><span class=nx>metadata</span><span class=p>];</span>
+</span></span></code></pre></div><p>코드를 실행한 결과를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; npx ts-node ./src/di-with-metadata.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> <span class=s1>&#39;logger&#39;</span> 필드에 @Inject<span class=o>(</span><span class=s1>&#39;Logger&#39;</span><span class=o>)</span> 설정 <span class=nv>중</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>→ 메타데이터에 저장된 의존성 주입 정보: Map<span class=o>(</span>1<span class=o>)</span> <span class=o>{</span> <span class=s1>&#39;logger&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Logger&#39;</span> <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> <span class=s1>&#39;db&#39;</span> 필드에 @Inject<span class=o>(</span><span class=s1>&#39;Database&#39;</span><span class=o>)</span> 설정 <span class=nv>중</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>→ 메타데이터에 저장된 의존성 주입 정보: Map<span class=o>(</span>1<span class=o>)</span> <span class=o>{</span> <span class=s1>&#39;db&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Database&#39;</span> <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> <span class=s1>&#39;logger&#39;</span> 필드에 @Inject<span class=o>(</span><span class=s1>&#39;Logger&#39;</span><span class=o>)</span> 설정 <span class=nv>중</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>→ 메타데이터에 저장된 의존성 주입 정보: Map<span class=o>(</span>2<span class=o>)</span> <span class=o>{</span> <span class=s1>&#39;db&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Database&#39;</span>, <span class=s1>&#39;logger&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Logger&#39;</span> <span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=o>===</span> 데코레이터 메타데이터를 통한 DI 정보 <span class=nv>확인</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> LoggerService 메타데이터 <span class=nv>구조</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  의존성 주입 토큰이 없습니다.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> DatabaseService 메타데이터 <span class=nv>구조</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  의존성 주입 토큰: Map<span class=o>(</span>1<span class=o>)</span> <span class=o>{</span> <span class=s1>&#39;logger&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Logger&#39;</span> <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> UserService 메타데이터 <span class=nv>구조</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  의존성 주입 토큰: Map<span class=o>(</span>2<span class=o>)</span> <span class=o>{</span> <span class=s1>&#39;db&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Database&#39;</span>, <span class=s1>&#39;logger&#39;</span> <span class=o>=</span>&gt; <span class=s1>&#39;Logger&#39;</span> <span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> UserService 메타데이터의 의존성 주입 <span class=nv>정보</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  db &lt;- Database
+</span></span><span class=line><span class=cl>  logger &lt;- <span class=nv>Logger</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> DatabaseService 메타데이터의 의존성 주입 <span class=nv>정보</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  logger &lt;- <span class=nv>Logger</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> LoggerService 메타데이터의 의존성 주입 <span class=nv>정보</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl>  메타데이터에 의존성 주입 정보가 없습니다.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>===</span> 서비스 <span class=nv>실행</span> <span class=o>===</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>LOG<span class=o>]</span> 2025-09-06T01:13:29.104Z: Getting user <span class=m>123</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>LOG<span class=o>]</span> 2025-09-06T01:13:29.105Z: Executing: SELECT * FROM users WHERE <span class=nv>id</span> <span class=o>=</span> <span class=m>123</span>
+</span></span></code></pre></div><p>처음 세 줄은 Inject 데코레이터가 실행될 때 출력되는 로그입니다. 가장먼저 DatabaseService의 logger 필드에 의존성이 주입되고, 이어서 UserService의 db, logger 필드에 순서대로 의존성이 주입되고 있습니다.</p><p>그 다음 세줄은 각 클래스의 데코레이터 메타데이터를 살펴보고 있습니다.</p><p>그리고 그 다음 세 줄은 각 클래스의 데코레이터 메타데이터를 통해 의존성 주입 정보를 확인하고 있구요, 마지막 2줄은 서비스 실행 결과입니다.</p><h2 id=reflect-metadata-와의-비교>reflect-metadata 와의 비교<a href=#reflect-metadata-와의-비교 class=hanchor arialabel=Anchor>&#8983;</a></h2><p><a href=https://github.com/microsoft/reflect-metadata>reflect-metadata</a>는 데코레이터의 메타데이터를 활용하기 위해 그동안 활용되어 왔습니다. 하지만, 새로운 표준의 등장으로 신규 프로젝트에서는 표준 데코레이터 메타데이터를 사용하는 게 좋습니다.</p><ul><li>번들링 사이즈를 줄일 수 있습니다. 라이브러리를 polyfill로 대체할 수 있죠.</li><li>데코레이터 메타데이터는 Stage 3 단계에 있습니다. Stage 3는 Candidate 상태로서 대부분 완성 되어 안정적이라고 판단할 수 있는 상태입니다. 따라서 향후 표준이 진행되는 방향을 따라가는 게 자연스럽습니다. 그리고 reflect-metadata 리포지토리에서도 이 점을 분명히 하고 있습니다.</li><li>reflect-metadata는 메타데이터를 가져오기 위해 Prototype 체인을 순회합니다. 따라서 메타데이터 처리를 위해 더 많은 작업이 필요하고, 성능 측면에서 불리합니다.</li></ul><h2 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li><a href=https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html#decorator-metadata>TypeScript 5.2/Decorator Metadata</a></li><li><a href=https://www.typescriptlang.org/ko/docs/handbook/decorators.html#%EB%A9%94%ED%83%80%EB%8D%B0%EC%9D%B4%ED%84%B0-metadata>TypeScript Decorators</a></li><li><a href=https://github.com/tc39/proposal-decorator-metadata>TC39/proposal-decorator-metadata</a></li><li><a href=https://blog.bitsrc.io/typescripts-reflect-metadata-what-it-is-and-how-to-use-it-fb7b19cfc7e2>TypeScript’s Reflect Metadata: What it is and How to Use it</a></li><li><a href=https://github.com/microsoft/reflect-metadata>reflect-metadata</a></li></ul></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/typescript-import-attributes/><span class=button__icon>←</span>
+<span class=button__text>Typescript: import attributes</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/typescript-using-%EB%AC%B8%EC%9C%BC%EB%A1%9C-%EB%A6%AC%EC%86%8C%EC%8A%A4-%EA%B4%80%EB%A6%AC/><span class=button__text>Typescript: using 문으로 리소스 관리</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script><script type=module>
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true });
+</script></div></body></html>

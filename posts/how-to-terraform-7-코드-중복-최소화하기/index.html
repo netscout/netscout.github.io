@@ -1,0 +1,136 @@
+<!doctype html><html lang=ko><head><title>How to Terraform(7) - 코드 중복 최소화하기 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="이전 글에서 우리는 모듈을 활용하여 코드를 재사용하는 방법을 알아봤습니다. 그 결과 동일한 리소스에 대해서 코드 중복을 많이 줄일 수 있었죠. 그런데 여전히 중복되는 코드가 있었습니다. 각 리소스마다 프로바이더와 백엔드는 어쩔 수 없이 매번 작성해야 했습니다. 이번 …"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/how-to-terraform-7-%EC%BD%94%EB%93%9C-%EC%A4%91%EB%B3%B5-%EC%B5%9C%EC%86%8C%ED%99%94%ED%95%98%EA%B8%B0/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="How to Terraform(7) - 코드 중복 최소화하기"><meta property="og:description" content="이전 글에서 우리는 모듈을 활용하여 코드를 재사용하는 방법을 알아봤습니다. 그 결과 동일한 리소스에 대해서 코드 중복을 많이 줄일 수 있었죠. 그런데 여전히 중복되는 코드가 있었습니다. 각 리소스마다 프로바이더와 백엔드는 어쩔 수 없이 매번 작성해야 했습니다. 이번 …"><meta property="og:url" content="https://netscout.github.io/posts/how-to-terraform-7-%EC%BD%94%EB%93%9C-%EC%A4%91%EB%B3%B5-%EC%B5%9C%EC%86%8C%ED%99%94%ED%95%98%EA%B8%B0/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2023-12-16 14:09:14 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/how-to-terraform-7-%EC%BD%94%EB%93%9C-%EC%A4%91%EB%B3%B5-%EC%B5%9C%EC%86%8C%ED%99%94%ED%95%98%EA%B8%B0/>How to Terraform(7) - 코드 중복 최소화하기</a></h1><div class=post-meta><time class=post-date>2023-12-16</time>
+<span class=post-reading-time>5 분 (858 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/Terraform/>Terraform</a>&nbsp;
+#<a href=https://netscout.github.io/tags/IaC/>IaC</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#시리즈-목차>시리즈 목차</a></li><li><a href=#terragrunt-설치하기>Terragrunt 설치하기</a><ul><li><a href=#homebrew로-설치하기>Homebrew로 설치하기</a></li><li><a href=#terragrunt-설정하기>Terragrunt 설정하기</a></li><li><a href=#좀-더-복잡한-경우>좀 더 복잡한 경우</a></li></ul></li><li><a href=#정리>정리</a></li></ul></nav></div><div class=post-content><div><h2 id=시리즈-목차>시리즈 목차<a href=#시리즈-목차 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li><a href=../How%20to%20Terraform%281%29%20-%20%ED%99%98%EA%B2%BD%20%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0%2FHow%20to%20Terraform%281%29%20-%20%ED%85%8C%EB%9D%BC%ED%8F%BC%EA%B3%BC%EC%9D%98%20%EA%B0%80%EB%B2%BC%EC%9A%B4%28%3F%29%20%EC%B2%AB%20%EB%A7%8C%EB%82%A8.md>How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남</a></li><li><a href=../How%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5%2FHow%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5.md>How to Terraform(2) - 변수와 출력</a></li><li><a href=../How%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC%2FHow%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC.md>How to Terraform(3) - 상태 관리</a></li><li><a href=../How%20to%20Terraform%284%29%20-%20%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC%20%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0%2FHow%20to%20Terraform%284%29%20-%20%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC%20%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0.md>How to Terraform(4) - 상태관리 개선하기</a></li><li><a href=../How%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88%2FHow%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88.md>How to Terraform(5) - 모듈</a></li><li><a href=../How%20to%20Terraform%286%29%20-%20%EB%AA%A8%EB%93%88%20%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC%2FHow%20to%20Terraform%286%29%20-%20%EB%AA%A8%EB%93%88%20%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC.md>How to Terraform(6) - 모듈 버전관리</a></li></ul><p>이전 글에서 우리는 모듈을 활용하여 코드를 재사용하는 방법을 알아봤습니다. 그 결과 동일한 리소스에 대해서 코드 중복을 많이 줄일 수 있었죠. 그런데 여전히 중복되는 코드가 있었습니다. 각 리소스마다 프로바이더와 백엔드는 어쩔 수 없이 매번 작성해야 했습니다. 이번 글에서는 이런 중복을 최소화하는 방법을 알아보겠습니다.</p><h2 id=terragrunt-설치하기>Terragrunt 설치하기<a href=#terragrunt-설치하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Terragrunt는 Terraform의 래퍼(wrapper)로 동작하며, Terraform 코드에서 중복되는 부분을 많이 줄일 수 있도록 도와줍니다. 래퍼로 동작하기 때문에 Terraform으로 실행가능한 init, plan, apply, destroy등의 명령은 그대로 사용할 수 있습니다. 우선 Terragrunt를 설치해볼까요?</p><h3 id=homebrew로-설치하기>Homebrew로 설치하기<a href=#homebrew로-설치하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>리눅스와 맥에서는 Homebrew를 사용해서 Terragrunt를 설치할 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; brew install terragrunt
+</span></span><span class=line><span class=cl>&gt; terragrunt --version
+</span></span><span class=line><span class=cl>terragrunt version 0.54.5
+</span></span></code></pre></div><blockquote><p>Terraform과 Terragrunt는 다음과 같이 alias로 등록하여 각각 tf, tg로 사용할 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>alias</span> <span class=nv>tf</span><span class=o>=</span><span class=s2>&#34;terraform&#34;</span>
+</span></span><span class=line><span class=cl><span class=nb>alias</span> <span class=nv>tg</span><span class=o>=</span><span class=s2>&#34;terragrunt&#34;</span>
+</span></span></code></pre></div></blockquote><h3 id=terragrunt-설정하기>Terragrunt 설정하기<a href=#terragrunt-설정하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>먼저 이전 글에서 작업하던 폴더 구조를 다시 확인해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>terraform-live
+</span></span><span class=line><span class=cl>└── dev
+</span></span><span class=line><span class=cl>    └── ec2
+</span></span><span class=line><span class=cl>        ├── service1
+</span></span><span class=line><span class=cl>        |   ├── main.tf
+</span></span><span class=line><span class=cl>        |   └── outputs.tf
+</span></span><span class=line><span class=cl>        └── service2
+</span></span><span class=line><span class=cl>            ├── main.tf
+</span></span><span class=line><span class=cl>            └── outputs.tf
+</span></span></code></pre></div><p>terraform-modules 리포지토리에 정의되어 있는 모듈을 참조하여 service1, service2를 정의했었습니다. 각 서비스의 main.tf 파일에는 다음과 같은 내용이 공통으로 존재했습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>...</span>
+</span></span></code></pre></div><p>Terragrunt로 이 중복을 제거해보겠습니다.</p><p>terraform-live/terragrunt.hcl 파일을 생성하고 다음과 같이 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=k>generate</span> <span class=s2>&#34;providers&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  path</span> <span class=o>=</span> <span class=s2>&#34;providers.tf&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  if_exists</span> <span class=o>=</span> <span class=s2>&#34;overwrite_terragrunt&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  contents</span> <span class=o>=</span> <span class=err>&lt;&lt;</span><span class=k>EOF</span>
+</span></span><span class=line><span class=cl><span class=k>provider</span> <span class=s2>&#34;aws&#34;</span> {
+</span></span><span class=line><span class=cl>  <span class=err>//</span> <span class=k>아시아</span> <span class=k>태평양</span><span class=p>(</span><span class=k>서울</span><span class=p>)</span> <span class=k>리전</span>
+</span></span><span class=line><span class=cl><span class=n>  region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl><span class=k>EOF</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><p>그리고 service1의 모든 파일을 삭제하고 terragrunt.hcl 파일을 생성하고 다음과 같이 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=k>terraform</span> {
+</span></span><span class=line><span class=cl><span class=n>  source</span> <span class=o>=</span><span class=n> &#34;github.com/netscout/terraform-modules//modules/ec2?ref</span><span class=o>=</span><span class=k>v0</span><span class=p>.</span><span class=m>0</span><span class=p>.</span><span class=m>1</span><span class=err>&#34;</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>include</span> {
+</span></span><span class=line><span class=cl><span class=n>  path</span> <span class=o>=</span> <span class=k>find_in_parent_folders</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>inputs</span> <span class=o>=</span> {
+</span></span><span class=line><span class=cl><span class=n>  env</span> <span class=o>=</span> <span class=s2>&#34;dev&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  port</span> <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><p>현재까지의 내용을 정리해보자면, 폴더 구조는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>terraform-live
+</span></span><span class=line><span class=cl>├── terragrunt.hcl
+</span></span><span class=line><span class=cl>└── dev
+</span></span><span class=line><span class=cl>    └── ec2
+</span></span><span class=line><span class=cl>        ├── service1
+</span></span><span class=line><span class=cl>        |   └── terragrunt.hcl
+</span></span><span class=line><span class=cl>        └── service2
+</span></span><span class=line><span class=cl>            ├── main.tf
+</span></span><span class=line><span class=cl>            └── outputs.tf
+</span></span></code></pre></div><p>그리고 Terragrunt의 plan 명령을 실행합니다. 참고로, Terragrunt는 plan 명령을 실행 할 때, init 명령을 자동으로 실행합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>cd</span> dev/ec2/service1
+</span></span><span class=line><span class=cl>&gt; tg plan
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Plan: <span class=m>2</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Changes to Outputs:
+</span></span><span class=line><span class=cl>  + <span class=nv>public_ip</span> <span class=o>=</span> <span class=o>(</span>known after apply<span class=o>)</span>
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>provider 설정이 없는데도 정상적으로 동작합니다. 그리고 outputs.tf가 없어졌는데도 출력값을 확인할 수 있습니다. 어떻게 가능한지 확인해볼까요? service1 폴더를 다시 확인해보면, <code>.terragrunt-cache</code> 폴더가 생성되어 있습니다. 이 폴더에는 Terragrunt가 실행될 때 자동으로 생성된 Terraform 코드가 저장되어 있습니다. 폴더 구조를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>service1</span>
+</span></span><span class=line><span class=cl><span class=err>├──</span> <span class=o>.</span><span class=n>terragrunt</span><span class=o>-</span><span class=n>cache</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>   <span class=err>└──</span> <span class=n>lIQuDV1aWBSG5nm4zKCulAdnsus</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>       <span class=err>└──</span> <span class=n>modules</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>           <span class=err>└──</span> <span class=n>ec2</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>               <span class=err>├──</span> <span class=n>main</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>               <span class=err>├──</span> <span class=n>outputs</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>               <span class=err>├──</span> <span class=n>providers</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl><span class=err>│</span>               <span class=err>└──</span> <span class=n>variables</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl><span class=err>└──</span> <span class=n>terragrunt</span><span class=o>.</span><span class=n>hcl</span>
+</span></span></code></pre></div><p>다른 파일들이 있긴 하지만, 핵심만 추리면 이렇습니다. 그러니까 모듈로 선언된 Terraform 코드가 그대로 다운로드 되어 있고, <code>providers.tf</code> 파일이 새로 생성되어 있습니다. 이 파일의 내용을 보면 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1># Generated by Terragrunt. Sig: nIlQXj57tbuaRZEa
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>provider 설정 없이도 plan 명령이 정상적으로 동작한 이유가 뭔지 이제 알 수 있죠? Terragrunt가 자동으로 생성해준 코드를 통해 provider 설정이 추가되었기 때문입니다. 다시 terraform-live/terragrunt.hcl 파일의 내용을 확인해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=k>generate</span> <span class=s2>&#34;providers&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  path</span> <span class=o>=</span> <span class=s2>&#34;providers.tf&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  if_exists</span> <span class=o>=</span> <span class=s2>&#34;overwrite_terragrunt&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  contents</span> <span class=o>=</span> <span class=err>&lt;&lt;</span><span class=k>EOF</span>
+</span></span><span class=line><span class=cl><span class=k>provider</span> <span class=s2>&#34;aws&#34;</span> {
+</span></span><span class=line><span class=cl>  <span class=err>//</span> <span class=k>아시아</span> <span class=k>태평양</span><span class=p>(</span><span class=k>서울</span><span class=p>)</span> <span class=k>리전</span>
+</span></span><span class=line><span class=cl><span class=n>  region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl><span class=k>EOF</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><p>providers.tf 파일을 생성하도록 설정하였고, 파일이 존재한다면 덮어쓰도록 했습니다. 그리고 파일의 내용은 provider 블록을 통해 aws 프로바이더를 정의해두었습니다. 그래서 <code>tg plan</code>명령이 실행 될 때 Terragrunt가 providers.tf 파일을 생성하고, 이 파일을 통해 provider 설정이 추가되었던 것입니다.</p><h3 id=좀-더-복잡한-경우>좀 더 복잡한 경우<a href=#좀-더-복잡한-경우 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>겨우 이 몇 줄의 코드 때문에 Terragrunt를 써야 하는 거냐고 생각하실 수도 있지만 이 코드는 좀 더 길어질 수도 있습니다. 예를 들어 프로바이더 설정과 백엔드 설정을 추가한다면 어떻게 될까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=c1># terragrunt가 각 모듈에 대해서 backend.tf를 생성한다.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>remote_state</span> {
+</span></span><span class=line><span class=cl><span class=n>  backend</span> <span class=o>=</span> <span class=s2>&#34;s3&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>  generate</span> <span class=o>=</span> {
+</span></span><span class=line><span class=cl><span class=n>    path</span> <span class=o>=</span> <span class=s2>&#34;backend.tf&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>    if_exists</span> <span class=o>=</span> <span class=s2>&#34;overwrite&#34;</span>
+</span></span><span class=line><span class=cl>  }
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>  config</span> <span class=o>=</span> {
+</span></span><span class=line><span class=cl><span class=n>    bucket</span> <span class=o>=</span> <span class=s2>&#34;terraform-state-example-20231216&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일이 저장될 경로
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>    key</span> <span class=o>=</span> <span class=s2>&#34;${path_relative_to_include()}/terraform.tfstate&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>    region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 락으로 사용할 DynamoDB 테이블
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>    dynamodb_table</span> <span class=o>=</span> <span class=s2>&#34;terraform_locks&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 암호화
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>    encrypt</span>        <span class=o>=</span> <span class=kt>true</span>
+</span></span><span class=line><span class=cl>  }
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>generate</span> <span class=s2>&#34;providers&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  path</span> <span class=o>=</span> <span class=s2>&#34;providers.tf&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  if_exists</span> <span class=o>=</span> <span class=s2>&#34;overwrite_terragrunt&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  contents</span> <span class=o>=</span> <span class=err>&lt;&lt;</span><span class=k>EOF</span>
+</span></span><span class=line><span class=cl><span class=k>terraform</span> {<span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 필요한 프로바이더 목록과 버전 정보
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>required_providers</span> {
+</span></span><span class=line><span class=cl><span class=n>    aws</span> <span class=o>=</span> {
+</span></span><span class=line><span class=cl><span class=n>      source</span> <span class=o>=</span> <span class=s2>&#34;hashicorp/aws&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>      version</span> <span class=o>=</span> <span class=s2>&#34;~&gt; 5.0&#34;</span><span class=c1> # 5.0 이상 버전 사용
+</span></span></span><span class=line><span class=cl><span class=c1></span>    }
+</span></span><span class=line><span class=cl>  }
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=err>//</span> <span class=k>AWS</span> <span class=k>프로바이더</span> <span class=k>설정</span>
+</span></span><span class=line><span class=cl><span class=k>provider</span> <span class=s2>&#34;aws&#34;</span> {
+</span></span><span class=line><span class=cl>  <span class=err>//</span> <span class=k>아시아</span> <span class=k>태평양</span><span class=p>(</span><span class=k>서울</span><span class=p>)</span> <span class=k>리전</span>
+</span></span><span class=line><span class=cl><span class=n>  region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl><span class=k>EOF</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><p>remote_state 블록에는 모든 Terraform 리소스에 적용될 backend 설정을 정의했습니다. config 속성의 내용은 기존의 backend 속성의 내용을 그대로 옮긴 것이며, generate 속성에는 backend.tf 파일을 생성하고 기존에 존재하는 경우 덮어쓰도록 설정했습니다. 자세히 보시면 config.key 속성이 기존과 다릅니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=n>key</span> <span class=o>=</span> <span class=s2>&#34;${path_relative_to_include()}/terraform.tfstate&#34;</span>
+</span></span></code></pre></div><p>즉, 현재 이 파일의 위치를 기준으로 해서 Terragrunt 명령이 실행되는 폴더의 경로를 가져오도록 했습니다. 만약 <code>dev/ec2/service1</code> 폴더에서 <code>tg plan</code> 명령을 실행한다면, key 값은 <code>dev/ec2/service1/terraform.tfstate</code>가 됩니다. 매번 리소스를 정의할 때 마다 폴더 경로를 key 값으로 수정하지 않아도 알아서 해준다는 거죠!</p><p>그리고 generate 블록에는 프로바이더 버전 정보를 추가했습니다. 이렇게 하면 모든 리소스에 대해서 프로바이더 버전을 일괄적으로 관리할 수 있습니다.</p><h2 id=정리>정리<a href=#정리 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>이제 Terraform을 통해 IaC를 구현하는 방법의 기초적인 내용은 모두 알아보았습니다. 익숙해지기 전에는 예전에 하던 것 처럼 수작업으로 일일이 리소스를 생성하는 게 훨씬 빠르다는 생각도 들게 됩니다. 하지만, 한 번 잘 설정해두면 속도가 빨라지는 것 뿐만 아니라 리소스의 변경을 추적할 수 있고, 리소스를 정리할 때도 커맨드 한 번으로 정리할 수 있게 됩니다. 지금까지 읽어주셔서 감사드리며, 도움이 되셨기를 바랍니다.</p><h1 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h1><ul><li><a href=https://www.terraformupandrunning.com/>Terraform Up and Running, 3rd Edition</a></li><li><a href=https://terragrunt.gruntwork.io/>Terragrunt</a></li></ul><h1 id=license>License<a href=#license class=hanchor arialabel=Anchor>&#8983;</a></h1><p><a href=https://creativecommons.org/licenses/by-nc-nd/2.0/kr/>저작자표시-비영리-변경금지 2.0 대한민국 (CC BY-NC-ND 2.0 KR)</a></p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/s3%EC%97%90-%EC%97%85%EB%A1%9C%EB%93%9C%EB%90%9C-%EC%9D%B4%EB%AF%B8%EC%A7%80-%EC%A0%91%EA%B7%BC%EC%8B%9C-cors-%EC%9D%B4%EC%8A%88-%EA%B7%B8%EB%A6%AC%EA%B3%A0-no-cors/><span class=button__icon>←</span>
+<span class=button__text>S3에 업로드된 이미지 접근시 CORS 이슈, 그리고 no-cors</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/how-to-terraform-6-%EB%AA%A8%EB%93%88-%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC/><span class=button__text>How to Terraform(6) - 모듈 버전관리</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>
