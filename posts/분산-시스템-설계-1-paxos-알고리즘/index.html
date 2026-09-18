@@ -1,0 +1,1276 @@
+<!doctype html><html lang=ko><head><title>분산 시스템 설계(1) - Paxos 알고리즘 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="오래전 시스템은 메인 프레임으로 대표되는 중앙 시스템으로 구성되었습니다. 메인 프레임에 터미널로 연결해서 각자의 작업을 진행했었죠."><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-1-paxos-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="분산 시스템 설계(1) - Paxos 알고리즘"><meta property="og:description" content="오래전 시스템은 메인 프레임으로 대표되는 중앙 시스템으로 구성되었습니다. 메인 프레임에 터미널로 연결해서 각자의 작업을 진행했었죠."><meta property="og:url" content="https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-1-paxos-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2026-02-14 10:05:42 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-1-paxos-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/>분산 시스템 설계(1) - Paxos 알고리즘</a></h1><div class=post-meta><time class=post-date>2026-02-14</time>
+<span class=post-reading-time>34 분 (7196 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C/>분산 시스템</a>&nbsp;
+#<a href=https://netscout.github.io/tags/Paxos/>Paxos</a>&nbsp;
+#<a href=https://netscout.github.io/tags/Node.js/>Node.js</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#분산-시스템이란>분산 시스템이란?</a></li><li><a href=#cap-pacelc>CAP, PACELC</a><ul><li><a href=#cap>CAP</a></li><li><a href=#pacelc>PACELC</a></li></ul></li><li><a href=#paxos-알고리즘>Paxos 알고리즘</a><ul><li><a href=#1단계-준비prepare>1단계: 준비(Prepare)</a></li><li><a href=#2단계-수용accept>2단계: 수용(Accept)</a></li></ul></li><li><a href=#좀-더-쓸모있는-예시를-들어보자-분산-시스템의-리더-노드-선출>좀 더 쓸모있는 예시를 들어보자: 분산 시스템의 리더 노드 선출</a><ul><li><a href=#시스템-개요>시스템 개요</a></li><li><a href=#이제-돌려보자>이제 돌려보자!</a></li></ul></li><li><a href=#appendix---더-상세한-설명>Appendix - 더 상세한 설명</a><ul><li><a href=#구체적-시나리오-노드-3이-리더로-선출>구체적 시나리오: 노드 3이 리더로 선출</a></li><li><a href=#선출-후-하트비트-흐름>선출 후 하트비트 흐름</a></li><li><a href=#리더-장애-감지와-재선출>리더 장애 감지와 재선출</a></li><li><a href=#노드-재시작과-팔로워-합류>노드 재시작과 팔로워 합류</a></li><li><a href=#타이밍-관계-요약>타이밍 관계 요약</a></li><li><a href=#전체-흐름-한눈에-보기>전체 흐름 한눈에 보기</a></li></ul></li><li><a href=#참고자료>참고자료</a></li></ul></nav></div><div class=post-content><div><h2 id=분산-시스템이란>분산 시스템이란?<a href=#분산-시스템이란 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>오래전 시스템은 메인 프레임으로 대표되는 중앙 시스템으로 구성되었습니다. 메인 프레임에 터미널로 연결해서 각자의 작업을 진행했었죠.</p><p align=center><img src=./ibm_main_frame.jpg></p>(IBM의 701 메인프레임 컴퓨터와 콘솔, 출처: IBM)<br><br>그런데 메인 프레임은 엄청난 덩치 뿐만 아니라 취약한 문제가 있었습니다. 메인 프레임이 고장나면 모든 사용자들이 장애의 영향을 받았던 거죠. 그래서 장애를 좀 더 유연하게 견딜 수 있는, 그리고 메인 프레임의 물리적인 한계를 넘어서 처리 용량을 확장할 수 있는 분산 시스템이 등장하기 시작합니다. 제가 기억하는 아주 유명했던 분산 시스템으로 SETI@home(Search for Extra-Terrestrial at home)이 있습니다.<br><br><p align=center><img src=./setiathome.jpg></p>(출처: https://setiathome.berkeley.edu/sah_graphics.php)<br><br>1997년에 UC 버클리에서 시작된 프로젝트로 푸에르토 리코에 위치한 아레시보 전파 망원경의 데이터를 통해 외계 생명체의 신호를 탐색하고자 했습니다. 전파 데이터가 너무 방대했기 때문에 이를 처리하기 위해 많은 컴퓨터가 필요했었는데요, 인터넷 연결이 가능한 PC를 가지고 있는 사람 누구나 프로젝트에 참여할 수 있도록 했습니다. 전세계 226개국에서 500만명 이상의 사람들이 자원해서 참여했고, 2020년 데이터 수집이 중단되었다고 합니다.<br><br><p>이렇게 컴퓨팅 파워의 한계와 장애 극복을 위한 분산 컴퓨팅은 계속 발전해왔고 DCOM, CORBA 등의 벤더 종속적인 기술이 등장했습니다. 그리고 SOAP 웹서비스 등의 벤더 독립적인 기술이 등장해 세상을 바꾸나 싶었지만, 찻잔 속의 태풍으로 끝이 났죠. 그리고 SOA 등의 현학적인 용어가 난무하는 시대를 지나 지금 우리는 클라우드가 보편적인 시대를 살고 있습니다. 이제는 분산 시스템이라는 말을 잘 쓰지 않긴합니다. 그게 기본이니까요.</p><p>하지만 기본이라는 말은 반대로 하면 원리를 모르는 사람들이 많다는 말도 되겠죠. 물론&mldr;. 저도 그 중에 하나입니다. 하하하하&mldr;.</p><h2 id=cap-pacelc>CAP, PACELC<a href=#cap-pacelc class=hanchor arialabel=Anchor>&#8983;</a></h2><p>분산 시스템의 유명한 이론적 정리는 CAP, PACELC가 있습니다. 우선 CAP을 볼까요?</p><h3 id=cap>CAP<a href=#cap class=hanchor arialabel=Anchor>&#8983;</a></h3><pre class=mermaid>graph TD
+    CAP[&#34;CAP Theorem&lt;br/&gt;(Brewer&#39;s Theorem, 2000)&#34;]
+
+    CAP --&gt; C[&#34;Consistency&lt;br/&gt;모든 노드가 같은 데이터를 봄&#34;]
+    CAP --&gt; A[&#34;Availability&lt;br/&gt;모든 요청이 응답을 받음&#34;]
+    CAP --&gt; P[&#34;Partition Tolerance&lt;br/&gt;네트워크 분할에도 동작&#34;]
+
+    C ~~~ A ~~~ P
+
+    subgraph CP[&#34;CP Systems&#34;]
+        CP1[&#34;MongoDB&#34;] ~~~ CP2[&#34;HBase&#34;] ~~~ CP3[&#34;Redis Cluster&#34;]
+    end
+    subgraph AP[&#34;AP Systems&#34;]
+        AP1[&#34;Cassandra&#34;] ~~~ AP2[&#34;DynamoDB&#34;] ~~~ AP3[&#34;CouchDB&#34;]
+    end
+    subgraph CA[&#34;CA Systems (이론적)&#34;]
+        CA1[&#34;Traditional RDBMS&lt;br/&gt;(single node)&#34;]
+    end
+
+    C --&gt; CP
+    P --&gt; CP
+    A --&gt; AP
+    P --&gt; AP
+    C --&gt; CA
+    A --&gt; CA
+
+    style C fill:#ff9999,stroke:#333
+    style A fill:#99cc99,stroke:#333
+    style P fill:#9999ff,stroke:#333
+    style CP fill:#ffcccc,stroke:#333
+    style AP fill:#ccffcc,stroke:#333
+    style CA fill:#ccccff,stroke:#333
+    style CAP fill:#ffffcc,stroke:#333</pre><p>Consistency, Availability, Partition Tolerance 이 세가지 요소 중에서 2가지를 선택해야 한다는 게 CAP 이론입니다. 하지만 이 이론에는 함정이 있는데요, 세상에 장애가 발생하지 않은 완벽한 네트워크는 없으므로 반드시 Partition Tolerance는 챙겨야 하기 때문에 CP 또는 AP 둘 중의 하나로 강제된다는 거죠. 그리고 요즘 대세인 결과적 일관성(Eventual Consistency)의 경우 AP에 해당하기는 하지만 일관성(C)을 포기한 건 아니므로 엄밀히 말하면 CAP의 이분법적 분류로는 정확히 설명하기 어렵다는 문제가 있습니다.</p><h3 id=pacelc>PACELC<a href=#pacelc class=hanchor arialabel=Anchor>&#8983;</a></h3><p>그래서 대안적으로 제시된 게 PACELC 입니다.</p><pre class=mermaid>graph TD
+    PACELC[&#34;PACELC Theorem&lt;br/&gt;(Daniel Abadi, 2012)&#34;]
+
+    PACELC --&gt; Q{&#34;네트워크 Partition&lt;br/&gt;발생?&#34;}
+
+    Q --&gt;|&#34;Yes (P)&#34;| PAC{&#34;Partition 상황&#34;}
+    Q --&gt;|&#34;No (E)&#34;| ELC{&#34;정상 상황 (Else)&#34;}
+
+    PAC --&gt;|&#34;Choose&#34;| PA[&#34;Availability&lt;br/&gt;가용성 우선&#34;]
+    PAC --&gt;|&#34;Choose&#34;| PC[&#34;Consistency&lt;br/&gt;일관성 우선&#34;]
+
+    ELC --&gt;|&#34;Choose&#34;| EL[&#34;Latency&lt;br/&gt;낮은 지연 우선&#34;]
+    ELC --&gt;|&#34;Choose&#34;| EC[&#34;Consistency&lt;br/&gt;일관성 우선&#34;]
+
+    subgraph PA_EC[&#34;PA/EC Systems&#34;]
+        direction LR
+        S1[&#34;DynamoDB&#34;] ~~~ S2[&#34;Cassandra&#34;] ~~~ S3[&#34;CouchDB&#34;]
+    end
+
+    subgraph PA_EL[&#34;PA/EL Systems&#34;]
+        direction LR
+        S4[&#34;Cassandra (tunable)&#34;] ~~~ S5[&#34;Riak&#34;]
+    end
+
+    subgraph PC_EC[&#34;PC/EC Systems&#34;]
+        direction LR
+        S6[&#34;MongoDB&#34;] ~~~ S7[&#34;HBase&#34;] ~~~ S8[&#34;BigTable&#34;]
+    end
+
+    subgraph PC_EL[&#34;PC/EL Systems&#34;]
+        direction LR
+        S9[&#34;PNUTS (Yahoo)&#34;]
+    end
+
+    PA --&gt; PA_EC
+    PA --&gt; PA_EL
+    PC --&gt; PC_EC
+    PC --&gt; PC_EL
+    EC --&gt; PA_EC
+    EC --&gt; PC_EC
+    EL --&gt; PA_EL
+    EL --&gt; PC_EL
+
+    style PACELC fill:#ffffcc,stroke:#333
+    style Q fill:#fff0e0,stroke:#333
+    style PAC fill:#ffdddd,stroke:#333
+    style ELC fill:#ddddff,stroke:#333
+    style PA fill:#ff9999,stroke:#333
+    style PC fill:#99ccff,stroke:#333
+    style EL fill:#99ff99,stroke:#333
+    style EC fill:#cc99ff,stroke:#333
+    style PA_EC fill:#ffe0f0,stroke:#333
+    style PA_EL fill:#e0ffe0,stroke:#333
+    style PC_EC fill:#e0e0ff,stroke:#333
+    style PC_EL fill:#fff0e0,stroke:#333</pre><p>선택지는 다음과 같습니다.</p><ul><li>네트워크 장애시(P) -> 가용성(A)이냐 일관성(C)이냐.</li><li>정상 상황(E)에서 -> 일관성(C)이냐 낮은 지연(L)이냐.</li></ul><p>예를 들면 이번에 알아볼 Paxos 알고리즘은 <code>PC/EC</code> 에 해당합니다.</p><ul><li>네트워크 장애시(P) -> 다수의 노드는 동작하지만, 소수의 노드는 동작을 멈춘다. 따라서 일관성(C)을 가용성(A)보다 우선한다.</li><li>정상 상황(E)에서 -> 다수의 노드 간에 합의 과정을 거치는데 이 과정에서 보다 많은 지연시간이 발생한다. 따라서 일관성(C)을 낮은 지연(L)보다 우선한다.</li></ul><h2 id=paxos-알고리즘>Paxos 알고리즘<a href=#paxos-알고리즘 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>앞선 정리에서 볼 수 있듯이 Paxos 알고리즘은 합의를 통한 일관성을 가장 중요한 가치로 생각하며, 분산 시스템에서 모든 서버가 같은 상태와 결정을 공유하고 유지할 수 있는 방법을 제안합니다.</p><p>Paxos 알고리즘의 핵심 구성 요소는 다음과 같습니다.</p><ul><li>제안자(Proposer): 제안자는 합의해야 할 값을 제안하고, 시스템의 다른 노드에 제안값을 전파합니다.</li><li>수용자(Acceptor): 제안자에게서 제안을 받고, 제안값의 수용 여부를 다른 노드에 알립니다.</li><li>학습자(Learner): 합의된 값을 수용하는 노드.</li></ul><p>그럼 이 노드들이 어떻게 서로 합의를 진행하는지 알아볼까요?</p><pre class=mermaid>sequenceDiagram
+    participant P as 제안자&lt;br/&gt;(Proposer)
+    participant A1 as 수용자 1&lt;br/&gt;(Acceptor)
+    participant A2 as 수용자 2&lt;br/&gt;(Acceptor)
+    participant A3 as 수용자 3&lt;br/&gt;(Acceptor)
+    participant L as 학습자&lt;br/&gt;(Learner)
+
+    Note over P, L: 📌 1단계: 준비 (Prepare)
+    rect rgb(220, 240, 255)
+        P-&gt;&gt;A1: Prepare(N)
+        P-&gt;&gt;A2: Prepare(N)
+        P-&gt;&gt;A3: Prepare(N)
+        A1--&gt;&gt;P: Promise(N)
+        A2--&gt;&gt;P: Promise(N)
+        A3--&gt;&gt;P: Promise(N)
+        Note over P: 과반수 약속 확인 ✅
+    end
+
+    Note over P, L: 📌 2단계: 수락 + 학습 (Accept + Learn)
+    rect rgb(220, 255, 220)
+        P-&gt;&gt;A1: Accept(N, 값)
+        P-&gt;&gt;A2: Accept(N, 값)
+        P-&gt;&gt;A3: Accept(N, 값)
+        par 제안자에게 수락 응답
+            A1--&gt;&gt;P: Accepted ✅
+            A2--&gt;&gt;P: Accepted ✅
+            A3--&gt;&gt;P: Accepted ✅
+        and 학습자에게 동시 전달
+            A1-&gt;&gt;L: Accepted(N, 값)
+            A2-&gt;&gt;L: Accepted(N, 값)
+            A3-&gt;&gt;L: Accepted(N, 값)
+        end
+        Note over P: 과반수 수락 → 값 선택 확정 🎉
+        Note over L: 과반수 수락 확인 → 합의된 값 학습 완료 ✅
+    end</pre><p>여기서 중요한 점은 1단계에서는 제안 번호(N)을 제시하고, 2단계에서 제안 번호(N)와 함께 제안 값을 전달한다는 점입니다. 하나씩 알아볼까요?</p><blockquote><p>여기서는 논리적인 구분을 위해서 제안자, 수용자, 학습자를 나눠놓았지만 사실 Paxos에 참여하는 각 노드가 3개의 역할을 모두 수행하는 경우도 있습니다. 이 글의 후반부에서 관련된 예시를 다룰 예정입니다!</p></blockquote><h3 id=1단계-준비prepare>1단계: 준비(Prepare)<a href=#1단계-준비prepare class=hanchor arialabel=Anchor>&#8983;</a></h3><p>1단계에서는 제안자가 수용자들에게 자신의 제안번호(N)를 제시하며, 자신의 제안번호(N)에 대해서 &lsquo;수락할 것을 약속해달라(promise)&lsquo;고 요청합니다.</p><p>수용자들은 제시 받은 제안번호(N)과 이전에 이미 약속한 제안번호(B)에 대해 다음과 같이 반응합니다.</p><ul><li>이미 약속한 제안번호(B)가 존재하는가?</li><li>존재하지 않는다면, 현재의 제안번호(N)에 대해 수용할 것을 약속한다.</li><li>존재한다면, 이미 약속한 제안번호(B)과 현재의 제안번호(N)을 비교한다.<ul><li>이미 약속한 제안번호가 더 크다면(B > N), 현재의 제안번호(N)을 거절한다.</li><li>현재의 제안번호(N)이 이미 약속한 제안번호(B)보다 더 크다면, 이전 약속(B)을 파기하고 현재의 제안번호(N)에 대해 수용할 것을 약속한다.</li></ul></li></ul><pre class=mermaid>flowchart TD
+    START([수용자가 제안 수신&lt;br/&gt;Prepare N]) --&gt; CHECK{이미 약속한&lt;br/&gt;제안 번호 B가&lt;br/&gt;존재하는가?}
+
+    CHECK --&gt;|존재하지 않음| ACCEPT_NEW[✅ 현재 제안 번호 N에 대해&lt;br/&gt;수용할 것을 약속&lt;br/&gt;Promise N]
+
+    CHECK --&gt;|존재함| COMPARE{현재 제안 번호 N과&lt;br/&gt;이미 약속한 제안 번호 B&lt;br/&gt;비교}
+
+    COMPARE --&gt;|B &gt; N&lt;br/&gt;이미 약속한 번호가 더 큼| REJECT[❌ 현재 제안 거절&lt;br/&gt;Reject N]
+
+    COMPARE --&gt;|N &gt; B&lt;br/&gt;현재 제안 번호가 더 큼| ACCEPT_HIGHER[✅ 이전 약속 B 파기&lt;br/&gt;현재 제안 번호 N에 대해&lt;br/&gt;수용할 것을 약속&lt;br/&gt;Promise N]
+
+    ACCEPT_NEW --&gt; WAIT([수용 요청 대기&lt;br/&gt;Accept N, 값])
+    ACCEPT_HIGHER --&gt; WAIT
+
+    style START fill:#4A90D9,stroke:#333,color:#fff
+    style CHECK fill:#F5A623,stroke:#333,color:#fff
+    style COMPARE fill:#F5A623,stroke:#333,color:#fff
+    style ACCEPT_NEW fill:#7ED321,stroke:#333,color:#fff
+    style REJECT fill:#D0021B,stroke:#333,color:#fff
+    style ACCEPT_HIGHER fill:#7ED321,stroke:#333,color:#fff
+    style WAIT fill:#9B9B9B,stroke:#333,color:#fff</pre><p>어떤 값이든 수용할 것을 약속한 노드들은 이제 수용 요청 대시 상태로 진입합니다.</p><h3 id=2단계-수용accept>2단계: 수용(Accept)<a href=#2단계-수용accept class=hanchor arialabel=Anchor>&#8983;</a></h3><p>이제 제안자는 각 수용자에게 자신있게 자신의 제안 번호(N)와 함께 값을 전달합니다. 이제 수용자들은 자신이 수용할 것을 약속한 제안 번호(B)와 비교하며 다음과 같이 반응합니다.</p><ul><li>수용할 것을 약속한 제안 번호(B)가 존재하는지 확인</li><li>B가 존재하지 않는다면, 제안 번호(N)의 값을 수용(Prepare 없이 Accept가 진행되는 경우는 생각하기 어렵긴 하지만!)</li><li>B가 존재한다면, 제안 번호(N)과 비교<ul><li>N &lt; B 이면, 이미 약속한 제안 번호(B)가 더 크기 때문에 N을 거절</li><li>N = B 이면, 현재 제안 번호(N)가 수용할 것을 약속한 제안 번호이므로 값을 수용하고, 제안자 및 학습자에게 수용되었음을 통지</li><li>N > B 이면, 현재 제안 번호(N)가 이미 약속한 제안 번호(B)보다 크므로 이전 약속을 파기하고 N을 수용할 것을 약속</li></ul></li></ul><pre class=mermaid>flowchart TD
+    START([수용자가 수락 요청 수신&lt;br/&gt;Accept N, 값]) --&gt; CHECK{현재 약속한&lt;br/&gt;제안번호 B가&lt;br/&gt;존재하는가?}
+
+    CHECK --&gt;|존재하지 않음| ACCEPT[✅ 수락&lt;br/&gt;Accepted N, 값]
+
+    CHECK --&gt;|존재함| COMPARE{현재 수락 요청의&lt;br/&gt;제안번호 N과&lt;br/&gt;약속한 제안번호 B&lt;br/&gt;비교}
+
+    COMPARE --&gt;|B &gt; N&lt;br/&gt;약속한 번호가 더 큼| REJECT[❌ 거절&lt;br/&gt;더 높은 번호에 이미 약속함]
+
+    COMPARE --&gt;|N = B&lt;br/&gt;약속한 번호와 동일| ACCEPT2[✅ 수락&lt;br/&gt;Accepted N, 값]
+
+    COMPARE --&gt;|N &gt; B&lt;br/&gt;수락 요청 번호가 더 큼| ACCEPT3[✅ 수락&lt;br/&gt;Accepted N, 값]
+
+    ACCEPT --&gt; NOTIFY([제안자 + 학습자에게&lt;br/&gt;Accepted 전달])
+    ACCEPT2 --&gt; NOTIFY
+    ACCEPT3 --&gt; NOTIFY
+    REJECT --&gt; WAIT([제안자에게 거절 응답])
+
+    style START fill:#4A90D9,stroke:#333,color:#fff
+    style CHECK fill:#F5A623,stroke:#333,color:#fff
+    style COMPARE fill:#F5A623,stroke:#333,color:#fff
+    style ACCEPT fill:#7ED321,stroke:#333,color:#fff
+    style ACCEPT2 fill:#7ED321,stroke:#333,color:#fff
+    style ACCEPT3 fill:#7ED321,stroke:#333,color:#fff
+    style REJECT fill:#D0021B,stroke:#333,color:#fff
+    style NOTIFY fill:#9B9B9B,stroke:#333,color:#fff
+    style WAIT fill:#9B9B9B,stroke:#333,color:#fff</pre><p>위 다이어그램에서 볼 수 있듯이 Prepare 단계에서 과반수의 약속을 받았더라도 Accept 단계에서 거절될 수도 있습니다. 더 높은 제안 번호의 Prepare가 중간에 끼어들 수도 있기 때문이죠.</p><h2 id=좀-더-쓸모있는-예시를-들어보자-분산-시스템의-리더-노드-선출>좀 더 쓸모있는 예시를 들어보자: 분산 시스템의 리더 노드 선출<a href=#좀-더-쓸모있는-예시를-들어보자-분산-시스템의-리더-노드-선출 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>자, 알고리즘은 뭐 이런 식으로 진행됩니다. 그런데 제가 이 내용을 처음 봤을 때는 솔직히 <code>뭐 어쩌라고?</code> 싶었습니다. 이게 도대체 뭔 소린지, 그리고 어디다가 써먹을 수 있다는 건지 영 감이 안잡혔죠. 그래서 이리저리 머리를 굴려보다가 그럴듯한 예시를 하나 생각해냈습니다.</p><p>우리가 쓰는 디비든 쿠버네티스 같은 인프라 운영 시스템이든 각종 실패를 견디기 위해서 노드를 분산해둡니다. 쿠버네티스의 경우 클러스터 운영을 위한 마스터 노드(또는 컨트롤 플레인)와 서비스를 돌리기 위한 워커 노드가 있죠. 특히 마스터 노드의 경우 전체 시스템 관리 및 워커 노드를 제어하는 등의 핵심 역할을 맡고 있습니다. 이런 마스터 노드가 죽으면 곤란하기 때문에 여러 마스터 노드를 실행해서 특정 노드에 장애가 생겨도 서비스 운영에 문제가 없도록 하고 있죠.</p><p>그런데 이 글을 시작하면서 분산 시스템에서는 합의가 중요하다고 했었습니다. 여러대의 마스터 노드가 있을 때 각자 서로 다른 결정을 하면 안되겠죠. 그래서 리더 노드를 선출하고 다른 노드들은 리더가 결정한 내용을 따르도록 하고 있습니다. 지금 부터 살펴볼 예제는 바로 그 리더를 선출하는 과정을 Paxos 알고리즘으로 구현해 볼 겁니다!</p><h3 id=시스템-개요>시스템 개요<a href=#시스템-개요 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>간결한 구현을 위해서 시작점이 되는 cli 앱이 3개의 웹 서버 클러스터를 실행하고, 3개의 웹 서버가 서로 통신하면서 Paxos 알고리즘을 통해 리더를 선출하게 됩니다. 그리고 필요에 따라서 각 서버를 죽이거나 재실행해서 다양한 경우를 실험해 볼 수 있도록 할 겁니다.</p><p>원래 이런 시스템은 멀티 Paxos로 구현해야 합니다. Paxos는 원래 합의를 한 번 하면 그걸로 끝이기 때문에 여러번의 합의를 하려면 계속 새로운 Paxos 인스턴스를 생성해야 합니다. 그런데 그렇게 하면 너무 복잡하니까, 단일 Paxos로 구현해서 매 라운드 마다 상태 값을 초기화 하고 다시 설정하는 형태로 구현해서 멀티 Paxos를 흉내내는 형태로 구현할 겁니다.</p><p>node.js와 typescript를 이용해서 2개의 파일로 구현할 겁니다.</p><ul><li>runCluster.ts: 3개의 웹 서버를 실행하고 관리하는 클러스터 관리자 cli 구현</li><li>node.ts: 각 웹서버를 express로 구현</li></ul><p>그리고 시스템 아키텍처는 다음과 같습니다.</p><pre class=mermaid>graph TD
+    USER[&#34;사용자 터미널&#34;] --&gt; CLI[&#34;runCluster.ts&lt;br/&gt;(클러스터 관리자 + 대화형 CLI)&lt;br/&gt;━━━━━━━━━━━━━━━━&lt;br/&gt;- child_process.spawn으로 3개 노드 생성&lt;br/&gt;- 각 노드 stdout에 색상 적용 출력&lt;br/&gt;- readline으로 대화형 CLI 제공&#34;]
+
+    CLI --&gt;|&#34;spawn: npx tsx node.ts 1 3001 ...&#34;| N1[&#34;node.ts (노드 1)&lt;br/&gt;:3001&#34;]
+    CLI --&gt;|&#34;spawn: npx tsx node.ts 2 3002 ...&#34;| N2[&#34;node.ts (노드 2)&lt;br/&gt;:3002&#34;]
+    CLI --&gt;|&#34;spawn: npx tsx node.ts 3 3003 ...&#34;| N3[&#34;node.ts (노드 3)&lt;br/&gt;:3003&#34;]
+
+    N1 &lt;--&gt;|&#34;HTTP POST&#34;| N2
+    N2 &lt;--&gt;|&#34;HTTP POST&#34;| N3
+    N1 &lt;--&gt;|&#34;HTTP POST&#34;| N3
+
+    style CLI fill:#f9f,stroke:#333,stroke-width:2px
+    style N1 fill:#36c,stroke:#333,color:#fff
+    style N2 fill:#c93,stroke:#333,color:#fff
+    style N3 fill:#c3c,stroke:#333,color:#fff</pre><p><code>runCluster.ts</code>가 3개의 웹서버 노드 프로세스를 생성하고, 각 노드는 Express 서버를 실행하여 HTTP로 통신합니다.</p><h4 id=클러스터-관리자-cli-구현>클러스터 관리자 cli 구현<a href=#클러스터-관리자-cli-구현 class=hanchor arialabel=Anchor>&#8983;</a></h4><p>클러스터 관리자 cli는 각 웹서버 노드 프로세스를 실행하고, 특정 노드 프로세스를 죽이거나 다시 시작하거나 할 수 있습니다.</p><pre class=mermaid>graph LR
+    CLI[&#34;대화형 CLI&lt;br/&gt;(readline)&#34;] --&gt; KILL[&#34;kill &amp;lt;id&amp;gt;&#34;]
+    CLI --&gt; START[&#34;start &amp;lt;id&amp;gt;&#34;]
+    CLI --&gt; STATUS[&#34;status&#34;]
+    CLI --&gt; EXIT[&#34;exit&#34;]
+
+    KILL --&gt; K_ACTION[&#34;child.kill(&#39;SIGTERM&#39;)&lt;br/&gt;→ 노드 프로세스 종료&#34;]
+    START --&gt; S_ACTION[&#34;startNode(nodeConfig)&lt;br/&gt;→ 새 child_process.spawn&lt;br/&gt;→ 노드 재시작&#34;]
+    STATUS --&gt; ST_ACTION[&#34;fetch GET /status&lt;br/&gt;→ 각 노드 상태 조회&lt;br/&gt;→ 콘솔 출력&#34;]
+    EXIT --&gt; E_ACTION[&#34;processes.forEach(p =&gt; p.kill(&#39;SIGTERM&#39;))&lt;br/&gt;→ 모든 노드 종료&lt;br/&gt;→ process.exit(0)&#34;]
+
+    style CLI fill:#f9f,stroke:#333
+    style K_ACTION fill:#fcc,stroke:#333
+    style S_ACTION fill:#cfc,stroke:#333
+    style ST_ACTION fill:#ccf,stroke:#333
+    style E_ACTION fill:#ffc,stroke:#333</pre><p><code>runCluster.ts</code>의 전체 코드는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=kr>import</span> <span class=p>{</span> <span class=nx>spawn</span><span class=p>,</span> <span class=nx>ChildProcess</span> <span class=p>}</span> <span class=kr>from</span> <span class=s1>&#39;child_process&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>import</span> <span class=o>*</span> <span class=kr>as</span> <span class=nx>readline</span> <span class=kr>from</span> <span class=s1>&#39;readline&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>import</span> <span class=p>{</span> <span class=nx>fileURLToPath</span> <span class=p>}</span> <span class=kr>from</span> <span class=s1>&#39;url&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>import</span> <span class=p>{</span> <span class=nx>dirname</span> <span class=p>}</span> <span class=kr>from</span> <span class=s1>&#39;path&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>__filename</span> <span class=o>=</span> <span class=nx>fileURLToPath</span><span class=p>(</span><span class=kr>import</span><span class=p>.</span><span class=nx>meta</span><span class=p>.</span><span class=nx>url</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>__dirname</span> <span class=o>=</span> <span class=nx>dirname</span><span class=p>(</span><span class=nx>__filename</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>NodeConfig</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>id</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>port</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 각 노드 아이디와 포트 번호 정의
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>NODES</span>: <span class=kt>NodeConfig</span><span class=p>[]</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=nx>id</span>: <span class=kt>1</span><span class=p>,</span> <span class=nx>port</span>: <span class=kt>3001</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=nx>id</span>: <span class=kt>2</span><span class=p>,</span> <span class=nx>port</span>: <span class=kt>3002</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>  <span class=p>{</span> <span class=nx>id</span>: <span class=kt>3</span><span class=p>,</span> <span class=nx>port</span>: <span class=kt>3003</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 노드 프로세스 관리를 위한 맵 정의
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>processes</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>&lt;</span><span class=nt>number</span><span class=p>,</span> <span class=na>ChildProcess</span><span class=p>&gt;();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 가독성을 위해 각 노드의 아이디별 출력 색상 정의
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>colors</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=mi>1</span><span class=o>:</span> <span class=s1>&#39;\x1b[36m&#39;</span><span class=p>,</span> <span class=c1>// 파란색
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=mi>2</span><span class=o>:</span> <span class=s1>&#39;\x1b[33m&#39;</span><span class=p>,</span> <span class=c1>// 노란색
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=mi>3</span><span class=o>:</span> <span class=s1>&#39;\x1b[35m&#39;</span><span class=p>,</span> <span class=c1>// 핑크색
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>reset</span><span class=o>:</span> <span class=s1>&#39;\x1b[0m&#39;</span><span class=p>,</span> <span class=c1>// 기본 색상
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 노드 프로세스를 시작하는 함수
+</span></span></span><span class=line><span class=cl><span class=cm> * @param nodeConfig - 노드 아이디와 포트 번호 정의
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>startNode</span><span class=p>(</span><span class=nx>nodeConfig</span>: <span class=kt>NodeConfig</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 현재 노드가 통신해야 할 다른 노드의 URL 목록 생성
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>peers</span>: <span class=kt>string</span><span class=p>[]</span> <span class=o>=</span> <span class=nx>NODES</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>filter</span><span class=p>((</span><span class=nx>n</span>: <span class=kt>NodeConfig</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>n</span><span class=p>.</span><span class=nx>id</span> <span class=o>!==</span> <span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>map</span><span class=p>((</span><span class=nx>n</span>: <span class=kt>NodeConfig</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=sb>`http://localhost:</span><span class=si>${</span><span class=nx>n</span><span class=p>.</span><span class=nx>port</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>colors</span><span class=p>[</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span><span class=si>}</span><span class=sb>노드 </span><span class=si>${</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb> 시작...</span><span class=si>${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스 생성
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>child</span> <span class=o>=</span> <span class=nx>spawn</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s1>&#39;npx&#39;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>[</span><span class=s1>&#39;tsx&#39;</span><span class=p>,</span> <span class=s1>&#39;node.ts&#39;</span><span class=p>,</span> <span class=nb>String</span><span class=p>(</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=p>),</span> <span class=nb>String</span><span class=p>(</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>port</span><span class=p>),</span> <span class=p>...</span><span class=nx>peers</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>cwd</span>: <span class=kt>__dirname</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>stdio</span><span class=o>:</span> <span class=p>[</span><span class=s1>&#39;ignore&#39;</span><span class=p>,</span> <span class=s1>&#39;pipe&#39;</span><span class=p>,</span> <span class=s1>&#39;pipe&#39;</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스의 출력에 색상을 적용 하여 출력
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>child</span><span class=p>.</span><span class=nx>stdout</span><span class=o>?</span><span class=p>.</span><span class=nx>on</span><span class=p>(</span><span class=s1>&#39;data&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>data</span>: <span class=kt>Buffer</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>color</span> <span class=o>=</span> <span class=nx>colors</span><span class=p>[</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span> <span class=o>||</span> <span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>process</span><span class=p>.</span><span class=nx>stdout</span><span class=p>.</span><span class=nx>write</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>color</span><span class=si>}${</span><span class=nx>data</span><span class=p>.</span><span class=nx>toString</span><span class=p>()</span><span class=si>}${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스의 에러 출력에 색상을 적용 하여 출력
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>child</span><span class=p>.</span><span class=nx>stderr</span><span class=o>?</span><span class=p>.</span><span class=nx>on</span><span class=p>(</span><span class=s1>&#39;data&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>data</span>: <span class=kt>Buffer</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>color</span> <span class=o>=</span> <span class=nx>colors</span><span class=p>[</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span> <span class=o>||</span> <span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>process</span><span class=p>.</span><span class=nx>stderr</span><span class=p>.</span><span class=nx>write</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>color</span><span class=si>}</span><span class=sb>[노드 </span><span class=si>${</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb> 오류] </span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>toString</span><span class=p>()</span><span class=si>}${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스가 종료될 때 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>child</span><span class=p>.</span><span class=nx>on</span><span class=p>(</span><span class=s1>&#39;exit&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>code</span><span class=p>,</span> <span class=nx>signal</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>colors</span><span class=p>[</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span><span class=si>}</span><span class=sb>[노드 </span><span class=si>${</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb>] 프로세스 종료 (code: </span><span class=si>${</span><span class=nx>code</span><span class=si>}</span><span class=sb>, signal: </span><span class=si>${</span><span class=nx>signal</span><span class=si>}</span><span class=sb>)</span><span class=si>${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>processes</span><span class=p>.</span><span class=k>delete</span><span class=p>(</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스를 관리하는 맵에 추가
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>processes</span><span class=p>.</span><span class=kr>set</span><span class=p>(</span><span class=nx>nodeConfig</span><span class=p>.</span><span class=nx>id</span><span class=p>,</span> <span class=nx>child</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 노드 프로세스 종료
+</span></span></span><span class=line><span class=cl><span class=cm> * @param id - 종료할 노드의 아이디
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>killNode</span><span class=p>(</span><span class=nx>id</span>: <span class=kt>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>child</span> <span class=o>=</span> <span class=nx>processes</span><span class=p>.</span><span class=kr>get</span><span class=p>(</span><span class=nx>id</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 노드 프로세스가 존재하면 종료
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=nx>child</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>child</span><span class=p>.</span><span class=nx>kill</span><span class=p>(</span><span class=s1>&#39;SIGTERM&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n</span><span class=si>${</span><span class=nx>colors</span><span class=p>[</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span><span class=si>}</span><span class=sb>[클러스터] 노드 </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb> 종료</span><span class=si>${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n[클러스터] 노드 </span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb> 실행 중이 아님</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 클러스터 상태 출력
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>async</span> <span class=kd>function</span> <span class=nx>printStatus() {</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n=== 클러스터 상태 ===&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>node</span> <span class=k>of</span> <span class=nx>NODES</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>res</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>fetch</span><span class=p>(</span><span class=sb>`http://localhost:</span><span class=si>${</span><span class=nx>node</span><span class=p>.</span><span class=nx>port</span><span class=si>}</span><span class=sb>/status`</span><span class=p>,</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>signal</span>: <span class=kt>AbortSignal.timeout</span><span class=p>(</span><span class=mi>1000</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>      <span class=p>});</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>data</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>color</span> <span class=o>=</span> <span class=nx>colors</span><span class=p>[</span><span class=nx>node</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span> <span class=o>||</span> <span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>leaderMark</span> <span class=o>=</span> <span class=nx>data</span><span class=p>.</span><span class=nx>isLeader</span> <span class=o>?</span> <span class=s1>&#39;👑&#39;</span> <span class=o>:</span> <span class=s1>&#39;  &#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=c1>// 노드 상태 출력
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=sb>`</span><span class=si>${</span><span class=nx>color</span><span class=si>}${</span><span class=nx>leaderMark</span><span class=si>}</span><span class=sb> 노드 </span><span class=si>${</span><span class=nx>node</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb>: 리더=</span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>currentLeaderId</span> <span class=o>??</span> <span class=s1>&#39;없음&#39;</span><span class=si>}</span><span class=sb>, `</span> <span class=o>+</span>
+</span></span><span class=line><span class=cl>        <span class=sb>`턴=</span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>currentTerm</span><span class=si>}</span><span class=sb>, 리더=</span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>isLeader</span><span class=si>}</span><span class=sb>, `</span> <span class=o>+</span>
+</span></span><span class=line><span class=cl>        <span class=sb>`약속한 제안 번호=</span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>promisedProposal</span> <span class=o>??</span> <span class=s1>&#39;없음&#39;</span><span class=si>}</span><span class=sb>, 수락한 제안 번호=</span><span class=si>${</span><span class=nx>data</span><span class=p>.</span><span class=nx>acceptedProposal</span> <span class=o>??</span> <span class=s1>&#39;없음&#39;</span><span class=si>}${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span>
+</span></span><span class=line><span class=cl>      <span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>catch</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>color</span> <span class=o>=</span> <span class=nx>colors</span><span class=p>[</span><span class=nx>node</span><span class=p>.</span><span class=nx>id</span> <span class=kr>as</span> <span class=k>keyof</span> <span class=k>typeof</span> <span class=nx>colors</span><span class=p>]</span> <span class=o>||</span> <span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>color</span><span class=si>}</span><span class=sb>   노드 </span><span class=si>${</span><span class=nx>node</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb>: ❌ 다운</span><span class=si>${</span><span class=nx>colors</span><span class=p>.</span><span class=nx>reset</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 대화형 CLI 구현
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>rl</span> <span class=o>=</span> <span class=nx>readline</span><span class=p>.</span><span class=nx>createInterface</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>  <span class=nx>input</span>: <span class=kt>process.stdin</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nx>output</span>: <span class=kt>process.stdout</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 모든 노드 시작
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n🚀 Starting Paxos Leader Election Cluster...\n&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>node</span> <span class=k>of</span> <span class=nx>NODES</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>startNode</span><span class=p>(</span><span class=nx>node</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 모든 노드가 시작될 때까지 대기 후 명령어 출력
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n&#39;</span> <span class=o>+</span> <span class=s1>&#39;=&#39;</span><span class=p>.</span><span class=nx>repeat</span><span class=p>(</span><span class=mi>60</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;📋 사용 가능한 명령어:&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  kill &lt;id&gt;   - 노드 종료 (특정 노드에 장애가 발생하여 종료되는 걸 시뮬레이션)&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  start &lt;id&gt;  - 종료된 노드 재시작&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  status      - 클러스터 상태 출력&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  exit        - 모든 노드 종료 및 종료&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;=&#39;</span><span class=p>.</span><span class=nx>repeat</span><span class=p>(</span><span class=mi>60</span><span class=p>)</span> <span class=o>+</span> <span class=s1>&#39;\n&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>},</span> <span class=mi>1000</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 대화형 CLI 명령어 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>rl</span><span class=p>.</span><span class=nx>on</span><span class=p>(</span><span class=s1>&#39;line&#39;</span><span class=p>,</span> <span class=kr>async</span> <span class=p>(</span><span class=nx>line</span>: <span class=kt>string</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=p>[</span><span class=nx>cmd</span><span class=p>,</span> <span class=nx>arg</span><span class=p>]</span> <span class=o>=</span> <span class=nx>line</span><span class=p>.</span><span class=nx>trim</span><span class=p>().</span><span class=nx>split</span><span class=p>(</span><span class=s1>&#39; &#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 명령어 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>switch</span> <span class=p>(</span><span class=nx>cmd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=s1>&#39;kill&#39;</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>killId</span> <span class=o>=</span> <span class=nb>parseInt</span><span class=p>(</span><span class=nx>arg</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=nx>NODES</span><span class=p>.</span><span class=nx>find</span><span class=p>((</span><span class=nx>n</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>n</span><span class=p>.</span><span class=nx>id</span> <span class=o>===</span> <span class=nx>killId</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>killNode</span><span class=p>(</span><span class=nx>killId</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`잘못된 노드 ID: </span><span class=si>${</span><span class=nx>arg</span><span class=si>}</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=s1>&#39;start&#39;</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>startId</span> <span class=o>=</span> <span class=nb>parseInt</span><span class=p>(</span><span class=nx>arg</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=kr>const</span> <span class=nx>node</span> <span class=o>=</span> <span class=nx>NODES</span><span class=p>.</span><span class=nx>find</span><span class=p>((</span><span class=nx>n</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>n</span><span class=p>.</span><span class=nx>id</span> <span class=o>===</span> <span class=nx>startId</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=nx>node</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=nx>processes</span><span class=p>.</span><span class=nx>has</span><span class=p>(</span><span class=nx>startId</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n노드 </span><span class=si>${</span><span class=nx>startId</span><span class=si>}</span><span class=sb>: 이미 실행 중</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=nx>startNode</span><span class=p>(</span><span class=nx>node</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`잘못된 노드 ID: </span><span class=si>${</span><span class=nx>arg</span><span class=si>}</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=s1>&#39;status&#39;</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=k>await</span> <span class=nx>printStatus</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>      <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=s1>&#39;exit&#39;</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n🛑 모든 노드 종료...\n&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>processes</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>p</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>p</span><span class=p>.</span><span class=nx>kill</span><span class=p>(</span><span class=s1>&#39;SIGTERM&#39;</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>      <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=nx>process</span><span class=p>.</span><span class=nx>exit</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=mi>500</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=s1>&#39;help&#39;</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n📋 사용 가능한 명령어:&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  kill &lt;id&gt;   - 노드 종료&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  start &lt;id&gt;  - 종료된 노드 재시작&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  status      - 클러스터 상태 출력&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;  exit        - 모든 노드 종료 및 종료\n&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>default</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=nx>line</span><span class=p>.</span><span class=nx>trim</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`알 수 없는 명령어: </span><span class=si>${</span><span class=nx>cmd</span><span class=si>}</span><span class=sb>. &#39;help&#39; 명령어를 사용하여 사용 가능한 명령어를 확인하세요.</span><span class=err>\</span><span class=sb>n`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Ctrl+C 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>process</span><span class=p>.</span><span class=nx>on</span><span class=p>(</span><span class=s1>&#39;SIGINT&#39;</span><span class=p>,</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;\n\n🛑 모든 노드 종료...\n&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nx>processes</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>p</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>p</span><span class=p>.</span><span class=nx>kill</span><span class=p>(</span><span class=s1>&#39;SIGTERM&#39;</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=nx>process</span><span class=p>.</span><span class=nx>exit</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span> <span class=mi>500</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span></code></pre></div><h4 id=웹-서버-노드-구현>웹 서버 노드 구현<a href=#웹-서버-노드-구현 class=hanchor arialabel=Anchor>&#8983;</a></h4><p>웹 서버 노드는 paxos 알고리즘을 위한 변수들과 각종 타이머, API 라우트 등을 포함하고 있습니다.</p><pre class=mermaid>graph TD
+    subgraph CONFIG[&#34;설정 (Configuration)&#34;]
+        C1[&#34;nodeId: number&lt;br&gt;자신의 노드ID&#34;] ~~~ C2[&#34;port: number&#34;] ~~~ C3[&#34;peers: string[]&lt;br&gt;자신을 제외한 클러스터의 노드&#34;] ~~~ C4[&#34;allNodes: string[]&lt;br&gt;자신을 포함한 클러스터의 모든 노드&#34;] ~~~ C5[&#34;majority: number&lt;br&gt;다수 노드의 수&#34;]
+    end
+    subgraph PAXOS[&#34;Paxos Acceptor 상태&#34;]
+        P1[&#34;promisedProposal: number | null&lt;br&gt;수락을 약속한 제안번호&#34;] ~~~ P2[&#34;acceptedProposal: number | null&lt;br&gt;수락한 제안번호&#34;] ~~~ P3[&#34;acceptedValue: number | null&lt;br&gt;수락한 값(리더의 노드ID)&#34;]
+    end
+    subgraph LEADER[&#34;Leader 상태&#34;]
+        L1[&#34;currentLeaderId: number | null&#34;] ~~~ L2[&#34;currentTurn: number&#34;] ~~~ L3[&#34;electionRound: number&#34;]
+    end
+    subgraph TIMERS[&#34;타이머&#34;]
+        T1[&#34;heartbeatTimer: NodeJS.Timeout | null&lt;br/&gt;(setInterval 1초 주기, 리더가 자신이 살아있음을 전송)&#34;] ~~~ T2[&#34;electionTimer: NodeJS.Timeout | null&lt;br/&gt;(setTimeout 3~5초, 리더는 중지)&#34;]
+    end
+    subgraph ROUTES[&#34;Express Routes&#34;]
+        R1[&#34;POST /paxos/prepare&#34;] ~~~ R2[&#34;POST /paxos/accept&#34;] ~~~ R3[&#34;POST /leader/heartbeat&#34;] ~~~ R4[&#34;GET /status&#34;]
+    end
+    subgraph LOGIC[&#34;핵심 로직 함수&#34;]
+        F1[&#34;runElection()&#34;] ~~~ F2[&#34;startHeartbeat()&#34;] ~~~ F3[&#34;stopHeartbeat()&#34;] ~~~ F4[&#34;resetElectionTimeout()&#34;] ~~~ F5[&#34;scheduleNextElection()&#34;]
+    end
+
+    CONFIG --&gt; PAXOS --&gt; LEADER --&gt; TIMERS --&gt; ROUTES --&gt; LOGIC
+
+    style CONFIG fill:#e0f0ff,stroke:#333
+    style PAXOS fill:#ffe0f0,stroke:#333
+    style LEADER fill:#f0ffe0,stroke:#333
+    style TIMERS fill:#fff0e0,stroke:#333
+    style ROUTES fill:#f0e0ff,stroke:#333
+    style LOGIC fill:#e0fff0,stroke:#333</pre><p>각 API는 paxos 알고리즘의 Prepare, Accept 단계를 위한 <code>/paxos/prepare</code>, <code>/paxos/accept</code>와 리더의 생존 신호를 수신할 <code>/leader/heartbeat</code>를 구현합니다.</p><pre class=mermaid>graph LR
+    N[&#34;노드 (Proposer/Acceptor)&#34;]
+
+    N --&gt;|&#34;POST /paxos/prepare&lt;br/&gt;{proposalNumber: N}&#34;| PREP[&#34;Phase 1: PREPARE&#34;]
+    PREP --&gt;|&#34;{promise: boolean,&lt;br/&gt;acceptedProposal: number | null,&lt;br/&gt;acceptedValue: number | null}&#34;| N
+
+    N --&gt;|&#34;POST /paxos/accept&lt;br/&gt;{proposalNumber: N, value: V}&#34;| ACC[&#34;Phase 2: ACCEPT&#34;]
+    ACC --&gt;|&#34;{accepted: boolean}&#34;| N
+
+    N --&gt;|&#34;POST /leader/heartbeat&lt;br/&gt;{leaderId: L, term: T}&#34;| HB[&#34;하트비트 수신&#34;]
+    HB --&gt;|&#34;{ok: true}&#34;| N
+
+    N --&gt;|&#34;GET /status&#34;| ST[&#34;상태 조회&#34;]
+    ST --&gt;|&#34;{nodeId, currentLeaderId,&lt;br/&gt;currentTerm, promisedProposal,&lt;br/&gt;acceptedProposal, acceptedValue,&lt;br/&gt;isLeader}&#34;| N
+
+    style PREP fill:#ffcccc,stroke:#333
+    style ACC fill:#ccffcc,stroke:#333
+    style HB fill:#ccccff,stroke:#333
+    style ST fill:#ffffcc,stroke:#333</pre><p><strong>엔드포인트 요약</strong>:</p><table><thead><tr><th>엔드포인트</th><th>메서드</th><th>요청</th><th>응답</th><th>용도</th></tr></thead><tbody><tr><td><code>/paxos/prepare</code></td><td>POST</td><td><code>{ proposalNumber }</code></td><td><code>{ promise, acceptedProposal, acceptedValue }</code></td><td>Paxos Phase 1 - 약속 요청</td></tr><tr><td><code>/paxos/accept</code></td><td>POST</td><td><code>{ proposalNumber, value }</code></td><td><code>{ accepted }</code></td><td>Paxos Phase 2 - 수락 요청</td></tr><tr><td><code>/leader/heartbeat</code></td><td>POST</td><td><code>{ leaderId, term }</code></td><td><code>{ ok }</code></td><td>리더 생존 신호 전송</td></tr><tr><td><code>/status</code></td><td>GET</td><td>-</td><td>전체 상태 객체</td><td>노드 상태 조회 (디버깅용)</td></tr></tbody></table><p><code>node.ts</code>의 전체 코드는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=kr>import</span> <span class=nx>express</span> <span class=kr>from</span> <span class=s1>&#39;express&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === 타입 정의 ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>NodeConfig</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>id</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>port</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>peers</span>: <span class=kt>string</span><span class=p>[];</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>PrepareRequest</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>proposalNumber</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>PrepareResponse</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>promise</span>: <span class=kt>boolean</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>acceptedProposal</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>acceptedValue</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>AcceptRequest</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>proposalNumber</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>value</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>AcceptResponse</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>accepted</span>: <span class=kt>boolean</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>type</span> <span class=nx>HeartbeatMessage</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>leaderId</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>term</span>: <span class=kt>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// cli 매개변수로 전달받은 노드 아이디, 포트, 통신해야 할 다른 노드의 URL 목록 등의 값을 변수에 저장
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>nodeId</span> <span class=o>=</span> <span class=nb>parseInt</span><span class=p>(</span><span class=nx>process</span><span class=p>.</span><span class=nx>argv</span><span class=p>[</span><span class=mi>2</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>port</span> <span class=o>=</span> <span class=nb>parseInt</span><span class=p>(</span><span class=nx>process</span><span class=p>.</span><span class=nx>argv</span><span class=p>[</span><span class=mi>3</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>peers</span> <span class=o>=</span> <span class=nx>process</span><span class=p>.</span><span class=nx>argv</span><span class=p>.</span><span class=nx>slice</span><span class=p>(</span><span class=mi>4</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>allNodes</span> <span class=o>=</span> <span class=p>[</span><span class=sb>`http://localhost:</span><span class=si>${</span><span class=nx>port</span><span class=si>}</span><span class=sb>`</span><span class=p>,</span> <span class=p>...</span><span class=nx>peers</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>majority</span> <span class=o>=</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>floor</span><span class=p>(</span><span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span> <span class=o>/</span> <span class=mi>2</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 시작 with 통신해야 할 다른 노드의 URL 목록: </span><span class=si>${</span><span class=nx>peers</span><span class=p>.</span><span class=nx>join</span><span class=p>(</span><span class=s1>&#39;, &#39;</span><span class=p>)</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 다수 필요: </span><span class=si>${</span><span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb> 중 </span><span class=si>${</span><span class=nx>majority</span><span class=si>}</span><span class=sb> 이상`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === Paxos Acceptor 상태 변수들 ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kd>let</span> <span class=nx>promisedProposal</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kd>let</span> <span class=nx>acceptedProposal</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=c1>// 수락된 값(리더의 노드 아이디)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>let</span> <span class=nx>acceptedValue</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === Leader 상태와 Heartbeat ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kd>let</span> <span class=nx>currentLeaderId</span>: <span class=kt>number</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kd>let</span> <span class=nx>currentTerm</span>: <span class=kt>number</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=c1>// 리더의 하트비트 전송 타이머
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>let</span> <span class=nx>heartbeatTimer</span>: <span class=kt>NodeJS.Timeout</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=c1>// 리더 부재시 선출을 진행하기 위한 타이머
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>let</span> <span class=nx>electionTimer</span>: <span class=kt>NodeJS.Timeout</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kd>let</span> <span class=nx>electionRound</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === Paxos Proposer 로직 ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 리더 선출 시작
+</span></span></span><span class=line><span class=cl><span class=cm> * @returns 리더 선출 성공 여부, 실패시 null 반환
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kr>async</span> <span class=kd>function</span> <span class=nx>runElection</span><span class=p>()</span><span class=o>:</span> <span class=nx>Promise</span><span class=p>&lt;</span><span class=nt>boolean</span> <span class=err>|</span> <span class=na>null</span><span class=p>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 제안 번호가 이미 있는 것보다 큰지 확인
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>!==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 이전에 약속된 제안 번호가 있는 경우, 라운드 조정(다른 노드가 이미 제안한 제안 번호보다 높은 제안 번호를 사용하도록 함)
+</span></span></span><span class=line><span class=cl><span class=cm>     * 
+</span></span></span><span class=line><span class=cl><span class=cm>     * ex: Math.max(0, Math.ceil(6 / 3)) = Math.max(0, 2) = 2
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span>
+</span></span><span class=line><span class=cl>    <span class=nx>electionRound</span> <span class=o>=</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>max</span><span class=p>(</span><span class=nx>electionRound</span><span class=p>,</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>ceil</span><span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>/</span> <span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=nx>electionRound</span><span class=o>++</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>   * 제안 번호 = 노드 아이디 + (라운드 * 노드 개수) -&gt; 각 라운드 마다 노드의 제안 번호의 고유성을 보장하기 위함
+</span></span></span><span class=line><span class=cl><span class=cm>   * 
+</span></span></span><span class=line><span class=cl><span class=cm>   * 예를 들어, 노드 1, 2, 3이 있고, 라운드가 1인 경우,
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 1, 라운드 1: 1 + (1 * 3) = 4
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 2, 라운드 1: 2 + (1 * 3) = 5
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 3, 라운드 1: 3 + (1 * 3) = 6
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 1, 라운드 2: 1 + (2 * 3) = 7
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 2, 라운드 2: 2 + (2 * 3) = 8
+</span></span></span><span class=line><span class=cl><span class=cm>   * 노드 3, 라운드 2: 3 + (2 * 3) = 9
+</span></span></span><span class=line><span class=cl><span class=cm>   * ...
+</span></span></span><span class=line><span class=cl><span class=cm>   */</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>proposalNumber</span> <span class=o>=</span> <span class=nx>nodeId</span> <span class=o>+</span> <span class=p>(</span><span class=nx>electionRound</span> <span class=o>*</span> <span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`</span><span class=err>\</span><span class=sb>n[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 🗳️  리더 선출 시작 / 제안 번호 #</span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// Phase 1: PREPARE 요청 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 1: 모든 노드에 PREPARE 요청 전송...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>preparePromises</span> <span class=o>=</span> <span class=nx>allNodes</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=kr>async</span> <span class=p>(</span><span class=nx>nodeUrl</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 자신을 포함한 모든 노드에 PREPARE 요청 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// PREPARE 요청 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=kr>const</span> <span class=nx>response</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>fetch</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>nodeUrl</span><span class=si>}</span><span class=sb>/paxos/prepare`</span><span class=p>,</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>method</span><span class=o>:</span> <span class=s1>&#39;POST&#39;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>headers</span><span class=o>:</span> <span class=p>{</span> <span class=s1>&#39;Content-Type&#39;</span><span class=o>:</span> <span class=s1>&#39;application/json&#39;</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=nx>body</span>: <span class=kt>JSON.stringify</span><span class=p>({</span> <span class=nx>proposalNumber</span> <span class=p>}</span> <span class=kr>as</span> <span class=nx>PrepareRequest</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>signal</span>: <span class=kt>AbortSignal.timeout</span><span class=p>(</span><span class=mi>1000</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>      <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=c1>// PREPARE 요청 실패 시 null 반환
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>response</span><span class=p>.</span><span class=nx>ok</span><span class=p>)</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>await</span> <span class=nx>response</span><span class=p>.</span><span class=nx>json</span><span class=p>()</span> <span class=kr>as</span> <span class=nx>PrepareResponse</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// PREPARE 요청 실패 시 null 반환
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// PREPARE 요청 결과 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>prepareResults</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>Promise</span><span class=p>.</span><span class=nx>allSettled</span><span class=p>(</span><span class=nx>preparePromises</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// PREPARE 요청 결과 중 성공한 것들 중 약속을 받은 것들만 추출
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>promises</span> <span class=o>=</span> <span class=nx>prepareResults</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>filter</span><span class=p>((</span><span class=nx>r</span><span class=p>)</span><span class=o>:</span> <span class=nx>r</span> <span class=k>is</span> <span class=nx>PromiseFulfilledResult</span><span class=p>&lt;</span><span class=nt>PrepareResponse</span><span class=p>&gt;</span> <span class=o>=&gt;</span>
+</span></span><span class=line><span class=cl>      <span class=nx>r</span><span class=p>.</span><span class=nx>status</span> <span class=o>===</span> <span class=s1>&#39;fulfilled&#39;</span> <span class=o>&amp;&amp;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>value</span> <span class=o>!==</span> <span class=kc>null</span> <span class=o>&amp;&amp;</span> <span class=o>!!</span><span class=nx>r</span><span class=p>.</span><span class=nx>value</span><span class=p>.</span><span class=nx>promise</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>map</span><span class=p>((</span><span class=nx>r</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>value</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 1: 약속을 받은 노드 </span><span class=si>${</span><span class=nx>promises</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb>/</span><span class=si>${</span><span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb> 개 (필요 </span><span class=si>${</span><span class=nx>majority</span><span class=si>}</span><span class=sb> 개)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>promises</span><span class=p>.</span><span class=nx>length</span> <span class=o>&lt;</span> <span class=nx>majority</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] ❌ Phase 1 실패: 약속을 받은 노드가 다수 필요 개수보다 적습니다. 리더 선출을 중단하고 다음 선거 시작.`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>scheduleNextElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>false</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 수락된 값 중 가장 높은 값을 채택, 없으면 자신을 제안
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kd>let</span> <span class=nx>proposedValue</span> <span class=o>=</span> <span class=nx>nodeId</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kd>let</span> <span class=nx>highestAcceptedProposal</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>p</span> <span class=k>of</span> <span class=nx>promises</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 수락된 값 중 가장 높은 값을 채택
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nx>p</span><span class=p>.</span><span class=nx>acceptedProposal</span> <span class=o>!==</span> <span class=kc>null</span> <span class=o>&amp;&amp;</span> <span class=nx>p</span><span class=p>.</span><span class=nx>acceptedProposal</span> <span class=o>&gt;</span> <span class=nx>highestAcceptedProposal</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>highestAcceptedProposal</span> <span class=o>=</span> <span class=nx>p</span><span class=p>.</span><span class=nx>acceptedProposal</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=nx>proposedValue</span> <span class=o>=</span> <span class=nx>p</span><span class=p>.</span><span class=nx>acceptedValue</span><span class=o>!</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>highestAcceptedProposal</span> <span class=o>&gt;</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 1: 이전에 수락된 값 (노드 </span><span class=si>${</span><span class=nx>proposedValue</span><span class=si>}</span><span class=sb>) 채택 / 제안 번호 #</span><span class=si>${</span><span class=nx>highestAcceptedProposal</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 1: 이전에 수락된 값이 없으므로 자신을 제안 (노드 </span><span class=si>${</span><span class=nx>proposedValue</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// Phase 2: Accept
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 2: 모든 노드에 ACCEPT (값: 노드 </span><span class=si>${</span><span class=nx>proposedValue</span><span class=si>}</span><span class=sb>) 요청 전송...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>acceptPromises</span> <span class=o>=</span> <span class=nx>allNodes</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=kr>async</span> <span class=p>(</span><span class=nx>nodeUrl</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 자신을 포함한 모든 노드에 ACCEPT 요청 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// ACCEPT 요청 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=kr>const</span> <span class=nx>response</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>fetch</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>nodeUrl</span><span class=si>}</span><span class=sb>/paxos/accept`</span><span class=p>,</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>method</span><span class=o>:</span> <span class=s1>&#39;POST&#39;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>headers</span><span class=o>:</span> <span class=p>{</span> <span class=s1>&#39;Content-Type&#39;</span><span class=o>:</span> <span class=s1>&#39;application/json&#39;</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=nx>body</span>: <span class=kt>JSON.stringify</span><span class=p>({</span> <span class=nx>proposalNumber</span><span class=p>,</span> <span class=nx>value</span>: <span class=kt>proposedValue</span> <span class=p>}</span> <span class=kr>as</span> <span class=nx>AcceptRequest</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>signal</span>: <span class=kt>AbortSignal.timeout</span><span class=p>(</span><span class=mi>1000</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>      <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=c1>// ACCEPT 요청 실패 시 null 반환
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>response</span><span class=p>.</span><span class=nx>ok</span><span class=p>)</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>await</span> <span class=nx>response</span><span class=p>.</span><span class=nx>json</span><span class=p>()</span> <span class=kr>as</span> <span class=nx>AcceptResponse</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// ACCEPT 요청 실패 시 null 반환
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// ACCEPT 요청 결과 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>acceptResults</span> <span class=o>=</span> <span class=k>await</span> <span class=nx>Promise</span><span class=p>.</span><span class=nx>allSettled</span><span class=p>(</span><span class=nx>acceptPromises</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// ACCEPT 요청 결과 중 성공한 것들 중 수락된 것들만 추출
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>accepts</span> <span class=o>=</span> <span class=nx>acceptResults</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>filter</span><span class=p>((</span><span class=nx>r</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>status</span> <span class=o>===</span> <span class=s1>&#39;fulfilled&#39;</span> <span class=o>&amp;&amp;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>value</span> <span class=o>!==</span> <span class=kc>null</span> <span class=o>&amp;&amp;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>value</span><span class=p>.</span><span class=nx>accepted</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=nx>length</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] Phase 2: 수락된 노드 </span><span class=si>${</span><span class=nx>accepts</span><span class=si>}</span><span class=sb>/</span><span class=si>${</span><span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=si>}</span><span class=sb> 개 (필요 </span><span class=si>${</span><span class=nx>majority</span><span class=si>}</span><span class=sb> 개)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>accepts</span> <span class=o>&gt;=</span> <span class=nx>majority</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] ✅ 리더 선출 성공! 노드 </span><span class=si>${</span><span class=nx>proposedValue</span><span class=si>}</span><span class=sb> 가 리더가 되었습니다. (제안 번호 </span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=nx>proposedValue</span> <span class=o>===</span> <span class=nx>nodeId</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 👑 나는 리더!`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=c1>// 리더는 자신의 선출 타임아웃을 중지 (팔로워만 타임아웃을 감시해야 함)
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=k>if</span> <span class=p>(</span><span class=nx>electionTimer</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>clearTimeout</span><span class=p>(</span><span class=nx>electionTimer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=nx>electionTimer</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=nx>startHeartbeat</span><span class=p>(</span><span class=nx>proposalNumber</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] ❌ Phase 2 실패: 수락된 노드가 다수 필요 개수보다 적습니다. 리더 선출을 중단하고 다음 선거 시작.`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>scheduleNextElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>false</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 다음 리더 선출 예약
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>scheduleNextElection() {</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 다음 선거 시작 전 랜덤 딜레이 적용
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>delay</span> <span class=o>=</span> <span class=mi>2000</span> <span class=o>+</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>random</span><span class=p>()</span> <span class=o>*</span> <span class=mi>3000</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 리더가 없으면 다음 선거 시작
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nx>currentLeaderId</span> <span class=o>===</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>runElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=nx>delay</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 하트비트 시작
+</span></span></span><span class=line><span class=cl><span class=cm> * @param term 현재 턴
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>startHeartbeat</span><span class=p>(</span><span class=nx>term</span>: <span class=kt>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 하트비트 중지
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>stopHeartbeat</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>heartbeatTimer</span> <span class=o>=</span> <span class=nx>setInterval</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 💓 하트비트 전송 (턴 </span><span class=si>${</span><span class=nx>term</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 자신(리더)를 제외한 나머지 노드에 하트비트 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>peers</span><span class=p>.</span><span class=nx>forEach</span><span class=p>(</span><span class=kr>async</span> <span class=p>(</span><span class=nx>peerUrl</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=nx>fetch</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>peerUrl</span><span class=si>}</span><span class=sb>/leader/heartbeat`</span><span class=p>,</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=nx>method</span><span class=o>:</span> <span class=s1>&#39;POST&#39;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>          <span class=nx>headers</span><span class=o>:</span> <span class=p>{</span> <span class=s1>&#39;Content-Type&#39;</span><span class=o>:</span> <span class=s1>&#39;application/json&#39;</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>          <span class=nx>body</span>: <span class=kt>JSON.stringify</span><span class=p>({</span> <span class=nx>leaderId</span>: <span class=kt>nodeId</span><span class=p>,</span> <span class=nx>term</span> <span class=p>}</span> <span class=kr>as</span> <span class=nx>HeartbeatMessage</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>          <span class=nx>signal</span>: <span class=kt>AbortSignal.timeout</span><span class=p>(</span><span class=mi>1000</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=p>});</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 노드 다운 시 무시
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>});</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=mi>1000</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 하트비트 중지
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>stopHeartbeat() {</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>heartbeatTimer</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>clearInterval</span><span class=p>(</span><span class=nx>heartbeatTimer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>heartbeatTimer</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm> * 리더 선출 타임아웃 리셋
+</span></span></span><span class=line><span class=cl><span class=cm> * 
+</span></span></span><span class=line><span class=cl><span class=cm> * 타임아웃 이후, 리더가 없으면 리더 선출 시작
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kd>function</span> <span class=nx>resetElectionTimeout() {</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>electionTimer</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>clearTimeout</span><span class=p>(</span><span class=nx>electionTimer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 리더 선출 타임아웃 랜덤 적용 (3-5초)
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>timeout</span> <span class=o>=</span> <span class=mi>3000</span> <span class=o>+</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>random</span><span class=p>()</span> <span class=o>*</span> <span class=mi>2000</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>electionTimer</span> <span class=o>=</span> <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] ⏰ 하트비트 타임아웃 - 리더 없음 감지, 리더 선출 시작...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>currentLeaderId</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 리더로 선출된 노드가 서비스 다운되는 경우에 해당 노드는 리더 선출에서 제외되어야 함
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 따라서 수락된 상태를 리셋하여 진행하며, 각 리더 선출은 사실상 새로운 Paxos 인스턴스가 되도록 함
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>acceptedProposal</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>acceptedValue</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>runElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=nx>timeout</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === Express Routes ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>app</span> <span class=o>=</span> <span class=nx>express</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=nx>app</span><span class=p>.</span><span class=nx>use</span><span class=p>(</span><span class=nx>express</span><span class=p>.</span><span class=nx>json</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Paxos Phase 1: Prepare
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>app</span><span class=p>.</span><span class=nx>post</span><span class=p>(</span><span class=s1>&#39;/paxos/prepare&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>req</span><span class=p>,</span> <span class=nx>res</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=p>{</span> <span class=nx>proposalNumber</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>body</span> <span class=kr>as</span> <span class=nx>PrepareRequest</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] PREPARE 요청 수신 / 제안 번호 #</span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>===</span> <span class=kc>null</span> <span class=o>||</span> <span class=nx>proposalNumber</span> <span class=o>&gt;</span> <span class=nx>promisedProposal</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>promisedProposal</span> <span class=o>=</span> <span class=nx>proposalNumber</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 수락된 상태를 리셋하여 진행하며, 각 리더 선출은 사실상 새로운 Paxos 인스턴스가 되도록 함(죽은 리더 재선출 방지)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>acceptedProposal</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>acceptedValue</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] → 제안 번호 #</span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb> 약속`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>      <span class=nx>promise</span>: <span class=kt>true</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>acceptedProposal</span>: <span class=kt>null</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>acceptedValue</span>: <span class=kt>null</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=kr>as</span> <span class=nx>PrepareResponse</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] → 이미 약속한 제안 번호 #</span><span class=si>${</span><span class=nx>promisedProposal</span><span class=si>}</span><span class=sb> 거절`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>      <span class=nx>promise</span>: <span class=kt>false</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>acceptedProposal</span>: <span class=kt>null</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nx>acceptedValue</span>: <span class=kt>null</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=kr>as</span> <span class=nx>PrepareResponse</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Paxos Phase 2: ACCEPT 요청 처리
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>app</span><span class=p>.</span><span class=nx>post</span><span class=p>(</span><span class=s1>&#39;/paxos/accept&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>req</span><span class=p>,</span> <span class=nx>res</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=p>{</span> <span class=nx>proposalNumber</span><span class=p>,</span> <span class=nx>value</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>body</span> <span class=kr>as</span> <span class=nx>AcceptRequest</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] ACCEPT 요청 수신 / 제안 번호 #</span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb>, 값: 노드 </span><span class=si>${</span><span class=nx>value</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 약속된 제안 번호가 없거나, 현재 제안 번호가 약속된 제안 번호보다 크거나 같으면 수락
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>===</span> <span class=kc>null</span> <span class=o>||</span> <span class=nx>proposalNumber</span> <span class=o>&gt;=</span> <span class=nx>promisedProposal</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 약속된 제안 번호 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>promisedProposal</span> <span class=o>=</span> <span class=nx>proposalNumber</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 수락된 제안 번호 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>acceptedProposal</span> <span class=o>=</span> <span class=nx>proposalNumber</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 수락된 값 갱신(리더의 노드 아이디)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>acceptedValue</span> <span class=o>=</span> <span class=nx>value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 리더 아이디 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>currentLeaderId</span> <span class=o>=</span> <span class=nx>value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 턴 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>currentTerm</span> <span class=o>=</span> <span class=nx>proposalNumber</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] → 수락! 새로운 리더: 노드 </span><span class=si>${</span><span class=nx>value</span><span class=si>}</span><span class=sb> (제안 번호 </span><span class=si>${</span><span class=nx>proposalNumber</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 리더가 아니라면 하트비트 중지
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nx>value</span> <span class=o>!==</span> <span class=nx>nodeId</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>stopHeartbeat</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 리더 선출 타임아웃 리셋
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>resetElectionTimeout</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span> <span class=nx>accepted</span>: <span class=kt>true</span> <span class=p>}</span> <span class=kr>as</span> <span class=nx>AcceptResponse</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] → 이미 약속한 제안 번호 #</span><span class=si>${</span><span class=nx>promisedProposal</span><span class=si>}</span><span class=sb> 거절`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span> <span class=nx>accepted</span>: <span class=kt>false</span> <span class=p>}</span> <span class=kr>as</span> <span class=nx>AcceptResponse</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 리더가 전송하는 하트비트 수신
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>app</span><span class=p>.</span><span class=nx>post</span><span class=p>(</span><span class=s1>&#39;/leader/heartbeat&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>req</span><span class=p>,</span> <span class=nx>res</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=p>{</span> <span class=nx>leaderId</span><span class=p>,</span> <span class=nx>term</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>body</span> <span class=kr>as</span> <span class=nx>HeartbeatMessage</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 새로운 턴이 시작되었다면,
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=nx>term</span> <span class=o>&gt;=</span> <span class=nx>currentTerm</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 새로운 리더가 등장했다면,
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=nx>leaderId</span> <span class=o>!==</span> <span class=nx>currentLeaderId</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 💓 새로운 리더로부터 하트비트 수신 / 리더: 노드 </span><span class=si>${</span><span class=nx>leaderId</span><span class=si>}</span><span class=sb> (턴 </span><span class=si>${</span><span class=nx>term</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 리더 아이디 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>currentLeaderId</span> <span class=o>=</span> <span class=nx>leaderId</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 현재 턴 갱신
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>currentTerm</span> <span class=o>=</span> <span class=nx>term</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=cm>/**
+</span></span></span><span class=line><span class=cl><span class=cm>     * 리더 선출 타임아웃 리셋(타임아웃 이후, 리더가 없으면 리더 선출 시작)
+</span></span></span><span class=line><span class=cl><span class=cm>     * 
+</span></span></span><span class=line><span class=cl><span class=cm>     * 리더의 하트비트가 안정적으로 수신된다면, 리더 선출의 타임아웃은 계속 리셋된다. -&gt; 현재 상태 유지.
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span>
+</span></span><span class=line><span class=cl>    <span class=nx>resetElectionTimeout</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span> <span class=nx>ok</span>: <span class=kt>true</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 상태 조회 엔드포인트
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>app</span><span class=p>.</span><span class=kr>get</span><span class=p>(</span><span class=s1>&#39;/status&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>req</span><span class=p>,</span> <span class=nx>res</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>    <span class=nx>nodeId</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>currentLeaderId</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>currentTerm</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>promisedProposal</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>acceptedProposal</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>acceptedValue</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=nx>isLeader</span>: <span class=kt>currentLeaderId</span> <span class=o>===</span> <span class=nx>nodeId</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// === 메인 함수 ===
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=nx>app</span><span class=p>.</span><span class=nx>listen</span><span class=p>(</span><span class=nx>port</span><span class=p>,</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 🚀 포트 </span><span class=si>${</span><span class=nx>port</span><span class=si>}</span><span class=sb>에서 수신 중...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 리더 선출 예약(랜덤 딜레이 적용)
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>delay</span> <span class=o>=</span> <span class=mi>1000</span> <span class=o>+</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>random</span><span class=p>()</span> <span class=o>*</span> <span class=mi>2000</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 리더 조회 전 </span><span class=si>${</span><span class=nb>Math</span><span class=p>.</span><span class=nx>round</span><span class=p>(</span><span class=nx>delay</span><span class=p>)</span><span class=si>}</span><span class=sb>ms 대기...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 랜덤 딜레이 이후, 리더가 없으면 리더 선출 시작
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=nx>currentLeaderId</span> <span class=o>===</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 리더 없음, 리더 선출 시작...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>runElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=nx>delay</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 리더 선출 타임아웃 리셋(타임아웃 이후, 리더가 없으면 리더 선출 시작)
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>resetElectionTimeout</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span></code></pre></div><h3 id=이제-돌려보자>이제 돌려보자!<a href=#이제-돌려보자 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>이제 모든 준비가 끝났습니다. <code>npm start</code> 명령으로 예제를 실행해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>❯ npm start        
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; paxos-leader-election@1.0.0 start
+</span></span><span class=line><span class=cl>&gt; npx tsx runCluster.ts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>🚀 Starting Paxos Leader Election Cluster...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>노드 <span class=m>1</span> 시작...
+</span></span><span class=line><span class=cl>노드 <span class=m>2</span> 시작...
+</span></span><span class=line><span class=cl>노드 <span class=m>3</span> 시작...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 시작 with 통신해야 할 다른 노드의 URL 목록: http://localhost:3002, http://localhost:3003
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 시작 with 통신해야 할 다른 노드의 URL 목록: http://localhost:3001, http://localhost:3003
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 다수 필요: <span class=m>3</span> 중 <span class=m>2</span> 이상
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 시작 with 통신해야 할 다른 노드의 URL 목록: http://localhost:3001, http://localhost:3002
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 다수 필요: <span class=m>3</span> 중 <span class=m>2</span> 이상
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 다수 필요: <span class=m>3</span> 중 <span class=m>2</span> 이상
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 🚀 포트 3002에서 수신 중...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 리더 조회 전 2639ms 대기...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 🚀 포트 3003에서 수신 중...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 리더 조회 전 2096ms 대기...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 🚀 포트 3001에서 수신 중...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 리더 조회 전 1722ms 대기...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>============================================================</span>
+</span></span><span class=line><span class=cl>📋 사용 가능한 명령어:
+</span></span><span class=line><span class=cl>  <span class=nb>kill</span> &lt;id&gt;   - 노드 종료 <span class=o>(</span>특정 노드에 장애가 발생하여 종료되는 걸 시뮬레이션<span class=o>)</span>
+</span></span><span class=line><span class=cl>  start &lt;id&gt;  - 종료된 노드 재시작
+</span></span><span class=line><span class=cl>  status      - 클러스터 상태 출력
+</span></span><span class=line><span class=cl>  <span class=nb>exit</span>        - 모든 노드 종료 및 <span class=nv>종료</span>
+</span></span><span class=line><span class=cl><span class=o>============================================================</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 리더 없음, 리더 선출 시작...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 🗳️  리더 선출 시작 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 1: 모든 노드에 PREPARE 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> → 제안 번호 <span class=c1>#4 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> → 제안 번호 <span class=c1>#4 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 제안 번호 <span class=c1>#4 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 1: 약속을 받은 노드 3/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 1: 이전에 수락된 값이 없으므로 자신을 제안 <span class=o>(</span>노드 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 2: 모든 노드에 ACCEPT <span class=o>(</span>값: 노드 1<span class=o>)</span> 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#4, 값: 노드 1</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>1</span> <span class=o>(</span>제안 번호 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#4, 값: 노드 1</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>1</span> <span class=o>(</span>제안 번호 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#4, 값: 노드 1</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>1</span> <span class=o>(</span>제안 번호 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 2: 수락된 노드 3/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> ✅ 리더 선출 성공! 노드 <span class=m>1</span> 가 리더가 되었습니다. <span class=o>(</span>제안 번호 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 👑 나는 리더!
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl>ki<span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl>ll<span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl> 1<span class=o>[</span>노드 1<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 4<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>클러스터<span class=o>]</span> 노드 <span class=m>1</span> 종료
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 프로세스 종료 <span class=o>(</span>code: 143, signal: null<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> ⏰ 하트비트 타임아웃 - 리더 없음 감지, 리더 선출 시작...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 🗳️  리더 선출 시작 / 제안 번호 <span class=c1>#12</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> Phase 1: 모든 노드에 PREPARE 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#12</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 제안 번호 <span class=c1>#12 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#12</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> → 제안 번호 <span class=c1>#12 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> Phase 1: 약속을 받은 노드 2/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> Phase 1: 이전에 수락된 값이 없으므로 자신을 제안 <span class=o>(</span>노드 3<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> Phase 2: 모든 노드에 ACCEPT <span class=o>(</span>값: 노드 3<span class=o>)</span> 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#12, 값: 노드 3</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>3</span> <span class=o>(</span>제안 번호 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#12, 값: 노드 3</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>3</span> <span class=o>(</span>제안 번호 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> Phase 2: 수락된 노드 2/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> ✅ 리더 선출 성공! 노드 <span class=m>3</span> 가 리더가 되었습니다. <span class=o>(</span>제안 번호 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 👑 나는 리더!
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl>st<span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl>art <span class=m>1</span>
+</span></span><span class=line><span class=cl>노드 <span class=m>1</span> 시작...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 시작 with 통신해야 할 다른 노드의 URL 목록: http://localhost:3002, http://localhost:3003
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 다수 필요: <span class=m>3</span> 중 <span class=m>2</span> 이상
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 🚀 포트 3001에서 수신 중...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 리더 조회 전 1960ms 대기...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 💓 새로운 리더로부터 하트비트 수신 / 리더: 노드 <span class=m>3</span> <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl>k<span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl>ill 3<span class=o>[</span>노드 3<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 12<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>클러스터<span class=o>]</span> 노드 <span class=m>3</span> 종료
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 3<span class=o>]</span> 프로세스 종료 <span class=o>(</span>code: 143, signal: null<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> ⏰ 하트비트 타임아웃 - 리더 없음 감지, 리더 선출 시작...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> 🗳️  리더 선출 시작 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 1: 모든 노드에 PREPARE 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 이미 약속한 제안 번호 <span class=c1>#12 거절</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#4</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> → 제안 번호 <span class=c1>#4 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> Phase 1: 약속을 받은 노드 1/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> ❌ Phase <span class=m>1</span> 실패: 약속을 받은 노드가 다수 필요 개수보다 적습니다. 리더 선출을 중단하고 다음 선거 시작.
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> ⏰ 하트비트 타임아웃 - 리더 없음 감지, 리더 선출 시작...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 🗳️  리더 선출 시작 / 제안 번호 <span class=c1>#17</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> Phase 1: 모든 노드에 PREPARE 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#17</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> → 제안 번호 <span class=c1>#17 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> PREPARE 요청 수신 / 제안 번호 <span class=c1>#17</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 제안 번호 <span class=c1>#17 약속</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> Phase 1: 약속을 받은 노드 2/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> Phase 1: 이전에 수락된 값이 없으므로 자신을 제안 <span class=o>(</span>노드 2<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> Phase 2: 모든 노드에 ACCEPT <span class=o>(</span>값: 노드 2<span class=o>)</span> 요청 전송...
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#17, 값: 노드 2</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>2</span> <span class=o>(</span>제안 번호 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> ACCEPT 요청 수신 / 제안 번호 <span class=c1>#17, 값: 노드 2</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 1<span class=o>]</span> → 수락! 새로운 리더: 노드 <span class=m>2</span> <span class=o>(</span>제안 번호 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> Phase 2: 수락된 노드 2/3 개 <span class=o>(</span>필요 <span class=m>2</span> 개<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> ✅ 리더 선출 성공! 노드 <span class=m>2</span> 가 리더가 되었습니다. <span class=o>(</span>제안 번호 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 👑 나는 리더!
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 17<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>노드 2<span class=o>]</span> 💓 하트비트 전송 <span class=o>(</span>턴 17<span class=o>)</span>
+</span></span><span class=line><span class=cl>^C
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>🛑 모든 노드 종료...
+</span></span></code></pre></div><p>클러스터가 실행된 뒤, 1번 노드가 리더로 선출이 되었습니다. 그리고 게속해서 1번 노드가 자신이 살아있음을 다른 노드에서 전송하죠. 이 동안에는 다른 노드들이 리더가 살아있기 때문에 리더 선출을 시도하지 않습니다.</p><p>그리고 중간에 <code>kill 1</code>을 입력해서 1번 노드를 제거했습니다. 그러자 리더의 생존 신고(하트비트)가 더 이상 도착하지 않게되고, 이를 감지한 다른 노드들이 리더 선출을 시작합니다. 그리고 노드 3번이 리더가 됩니다.</p><p>다시 <code>start 1</code>을 입력해서 1번 노드를 시작하면, 1번 노드는 현재 3번 노드가 리더라는 걸 파악하고 따르기로 합니다. 그리고 다시 3번 노드를 제거하면, 리더 선출이 시작되고 이번엔 2번 노드가 리더가 됩니다.</p><p>이 과정을 다이어그램으로 도식화 해보면 다음과 같습니다.</p><pre class=mermaid>flowchart TD
+    START[&#34;runElection() 호출&#34;] --&gt; CALC[&#34;제안 번호 계산&lt;br/&gt;proposalNumber = nodeId + (electionRound * 3)&#34;]
+
+    CALC --&gt; PHASE1[&#34;Phase 1: PREPARE&lt;br/&gt;모든 노드에 PREPARE 전송&#34;]
+
+    PHASE1 --&gt; PROMISE_CHECK{&#34;과반수 약속&lt;br/&gt;받았는가?&#34;}
+
+    PROMISE_CHECK --&gt;|&#34;No (promises &lt; majority)&#34;| FAIL1[&#34;scheduleNextElection()&lt;br/&gt;2~5초 후 재시도&#34;]
+    PROMISE_CHECK --&gt;|&#34;Yes (promises &gt;= majority)&#34;| VALUE_CHECK[&#34;이전에 수락된 값 확인&lt;br/&gt;없으면 자신을 제안&#34;]
+
+    VALUE_CHECK --&gt; PHASE2[&#34;Phase 2: ACCEPT&lt;br/&gt;모든 노드에 ACCEPT 전송&lt;br/&gt;(제안 번호, 제안 값)&#34;]
+
+    PHASE2 --&gt; ACCEPT_CHECK{&#34;과반수 수락&lt;br/&gt;받았는가?&#34;}
+
+    ACCEPT_CHECK --&gt;|&#34;No (accepts &lt; majority)&#34;| FAIL2[&#34;scheduleNextElection()&lt;br/&gt;2~5초 후 재시도&#34;]
+    ACCEPT_CHECK --&gt;|&#34;Yes (accepts &gt;= majority)&#34;| LEADER_CHECK{&#34;proposedValue&lt;br/&gt;=== nodeId?&#34;}
+
+    LEADER_CHECK --&gt;|&#34;Yes (나를 제안)&#34;| LEADER[&#34;리더 확정! 👑&lt;br/&gt;electionTimer 중지&lt;br/&gt;startHeartbeat()&#34;]
+    LEADER_CHECK --&gt;|&#34;No (다른 노드 제안)&#34;| FOLLOWER[&#34;팔로워로 전환&lt;br/&gt;resetElectionTimeout()&#34;]
+
+    LEADER --&gt; END1[&#34;하트비트 전송 시작&lt;br/&gt;(1초 주기)&#34;]
+    FOLLOWER --&gt; END2[&#34;하트비트 수신 대기&lt;br/&gt;(3~5초 타임아웃)&#34;]
+
+    FAIL1 --&gt; WAIT1[&#34;랜덤 딜레이 대기&#34;]
+    FAIL2 --&gt; WAIT2[&#34;랜덤 딜레이 대기&#34;]
+
+    WAIT1 --&gt; CHECK1{&#34;currentLeaderId&lt;br/&gt;=== null?&#34;}
+    WAIT2 --&gt; CHECK2{&#34;currentLeaderId&lt;br/&gt;=== null?&#34;}
+
+    CHECK1 --&gt;|Yes| START
+    CHECK1 --&gt;|No| END3[&#34;이미 리더 존재&lt;br/&gt;재시도 안 함&#34;]
+
+    CHECK2 --&gt;|Yes| START
+    CHECK2 --&gt;|No| END3
+
+    style START fill:#e0f0ff,stroke:#333
+    style PHASE1 fill:#ffcccc,stroke:#333
+    style PHASE2 fill:#ccffcc,stroke:#333
+    style LEADER fill:#ffd700,stroke:#333,stroke-width:3px
+    style FOLLOWER fill:#ccccff,stroke:#333
+    style FAIL1 fill:#ffccaa,stroke:#333
+    style FAIL2 fill:#ffccaa,stroke:#333</pre><p>혹시 더 상세한 설명을 원하는 분들 위해서(음.. 미래의 저를 위해서&mldr;!) 더 자세한 알고리즘의 흐름을 이 글 마지막의 Appendix에 추가해두었습니다.</p><h2 id=appendix---더-상세한-설명>Appendix - 더 상세한 설명<a href=#appendix---더-상세한-설명 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>미래의 저를 위해서 더 상세한 설명을 남겨두겠습니다!</p><h3 id=구체적-시나리오-노드-3이-리더로-선출>구체적 시나리오: 노드 3이 리더로 선출<a href=#구체적-시나리오-노드-3이-리더로-선출 class=hanchor arialabel=Anchor>&#8983;</a></h3><h4 id=초기-상태>초기 상태<a href=#초기-상태 class=hanchor arialabel=Anchor>&#8983;</a></h4><table><thead><tr><th>노드</th><th>promisedProposal</th><th>acceptedProposal</th><th>acceptedValue</th><th>currentLeaderId</th><th>currentTerm</th><th>electionRound</th></tr></thead><tbody><tr><td>1</td><td>null</td><td>null</td><td>null</td><td>null</td><td>0</td><td>0</td></tr><tr><td>2</td><td>null</td><td>null</td><td>null</td><td>null</td><td>0</td><td>0</td></tr><tr><td>3</td><td>null</td><td>null</td><td>null</td><td>null</td><td>0</td><td>0</td></tr></tbody></table><p>노드 3이 가장 먼저 랜덤 딜레이가 만료되어 선출을 시작한다고 가정합니다.</p><h4 id=phase-1-prepare-시퀀스>Phase 1: PREPARE 시퀀스<a href=#phase-1-prepare-시퀀스 class=hanchor arialabel=Anchor>&#8983;</a></h4><pre class=mermaid>sequenceDiagram
+    participant P as 노드 3 (Proposer)
+    participant A1 as 노드 1 (Acceptor)
+    participant A2 as 노드 2 (Acceptor)
+    participant A3 as 노드 3 (Acceptor)
+
+    Note over P: electionRound++ → 1&lt;br/&gt;proposalNumber = 3+(1*3) = 6
+
+    P-&gt;&gt;A1: PREPARE(#6)
+    P-&gt;&gt;A2: PREPARE(#6)
+    P-&gt;&gt;A3: PREPARE(#6)
+
+    Note over A1: promisedProposal=null&lt;br/&gt;6 &gt; null → 약속!&lt;br/&gt;promisedProposal=6&lt;br/&gt;accepted 리셋 (죽은 리더 방지)
+    Note over A2: promisedProposal=null&lt;br/&gt;6 &gt; null → 약속!&lt;br/&gt;promisedProposal=6&lt;br/&gt;accepted 리셋
+    Note over A3: promisedProposal=null&lt;br/&gt;6 &gt; null → 약속!&lt;br/&gt;promisedProposal=6&lt;br/&gt;accepted 리셋
+
+    A1--&gt;&gt;P: {promise:true, accepted:null}
+    A2--&gt;&gt;P: {promise:true, accepted:null}
+    A3--&gt;&gt;P: {promise:true, accepted:null}
+
+    Note over P: 약속 3/3 (필요 2) ✅&lt;br/&gt;이전 수락 값 없음&lt;br/&gt;→ 자신(노드 3) 제안</pre><p><strong>핵심 포인트</strong>:</p><ul><li><code>promisedProposal === null || proposalNumber > promisedProposal</code> 조건 충족 시 약속</li><li><strong>PREPARE 처리 시 <code>acceptedProposal</code>과 <code>acceptedValue</code>를 null로 리셋</strong> (node.ts:295-296)<ul><li>이유: 리더 선출에서는 각 선거가 새로운 Paxos 인스턴스처럼 동작</li><li>죽은 리더가 재선출되는 것을 방지</li></ul></li><li>응답에 이전 수락 값 포함 (표준 Paxos 메커니즘)</li></ul><h4 id=phase-1-이후-상태>Phase 1 이후 상태<a href=#phase-1-이후-상태 class=hanchor arialabel=Anchor>&#8983;</a></h4><table><thead><tr><th>노드</th><th>promisedProposal</th><th>acceptedProposal</th><th>acceptedValue</th><th>currentLeaderId</th><th>currentTerm</th></tr></thead><tbody><tr><td>1</td><td><strong>6</strong></td><td>null (리셋)</td><td>null (리셋)</td><td>null</td><td>0</td></tr><tr><td>2</td><td><strong>6</strong></td><td>null (리셋)</td><td>null (리셋)</td><td>null</td><td>0</td></tr><tr><td>3</td><td><strong>6</strong></td><td>null (리셋)</td><td>null (리셋)</td><td>null</td><td>0</td></tr></tbody></table><h4 id=phase-2-accept-시퀀스>Phase 2: ACCEPT 시퀀스<a href=#phase-2-accept-시퀀스 class=hanchor arialabel=Anchor>&#8983;</a></h4><pre class=mermaid>sequenceDiagram
+    participant P as 노드 3 (Proposer)
+    participant A1 as 노드 1 (Acceptor)
+    participant A2 as 노드 2 (Acceptor)
+    participant A3 as 노드 3 (Acceptor)
+
+    P-&gt;&gt;A1: ACCEPT(#6, value:3)
+    P-&gt;&gt;A2: ACCEPT(#6, value:3)
+    P-&gt;&gt;A3: ACCEPT(#6, value:3)
+
+    Note over A1: 6 &gt;= promisedProposal(6) → 수락!&lt;br/&gt;acceptedProposal=6&lt;br/&gt;acceptedValue=3&lt;br/&gt;currentLeaderId=3&lt;br/&gt;currentTerm=6&lt;br/&gt;resetElectionTimeout()
+    Note over A2: 6 &gt;= 6 → 수락!&lt;br/&gt;currentLeaderId=3&lt;br/&gt;currentTerm=6&lt;br/&gt;resetElectionTimeout()
+    Note over A3: 6 &gt;= 6 → 수락!&lt;br/&gt;currentLeaderId=3&lt;br/&gt;currentTerm=6
+
+    A1--&gt;&gt;P: {accepted:true}
+    A2--&gt;&gt;P: {accepted:true}
+    A3--&gt;&gt;P: {accepted:true}
+
+    Note over P: 수락 3/3 (필요 2) ✅&lt;br/&gt;리더 선출 성공!&lt;br/&gt;proposedValue(3) === nodeId(3)&lt;br/&gt;→ &#34;나는 리더!&#34; 👑&lt;br/&gt;→ electionTimer 중지&lt;br/&gt;→ startHeartbeat(6)</pre><p><strong>핵심 포인트</strong>:</p><ul><li><code>promisedProposal === null || proposalNumber >= promisedProposal</code> 조건 충족 시 수락</li><li>모든 Acceptor가 상태 업데이트:<ul><li><code>acceptedProposal</code>, <code>acceptedValue</code> 설정</li><li><code>currentLeaderId</code>, <code>currentTerm</code> 갱신</li><li>리더가 아닌 노드는 <code>stopHeartbeat()</code> 호출</li><li><strong><code>resetElectionTimeout()</code> 호출</strong> → 3~5초 타이머 리셋</li></ul></li><li>노드 3은 <code>proposedValue === nodeId</code> 확인 후:<ul><li><strong><code>electionTimer</code> 중지</strong> (node.ts:192-194) ← 중요! 리더는 타이머 불필요</li><li><code>startHeartbeat(6)</code> 호출</li></ul></li></ul><h4 id=phase-2-이후-최종-상태>Phase 2 이후 최종 상태<a href=#phase-2-이후-최종-상태 class=hanchor arialabel=Anchor>&#8983;</a></h4><table><thead><tr><th>노드</th><th>promisedProposal</th><th>acceptedProposal</th><th>acceptedValue</th><th>currentLeaderId</th><th>currentTerm</th><th>heartbeatTimer</th><th>electionTimer</th><th>역할</th></tr></thead><tbody><tr><td>1</td><td>6</td><td>6</td><td>3</td><td><strong>3</strong></td><td><strong>6</strong></td><td>null</td><td>활성 (3~5초)</td><td>팔로워</td></tr><tr><td>2</td><td>6</td><td>6</td><td>3</td><td><strong>3</strong></td><td><strong>6</strong></td><td>null</td><td>활성 (3~5초)</td><td>팔로워</td></tr><tr><td>3</td><td>6</td><td>6</td><td>3</td><td><strong>3</strong></td><td><strong>6</strong></td><td><strong>활성 (1초)</strong></td><td><strong>null (중지)</strong></td><td><strong>리더</strong> 👑</td></tr></tbody></table><h3 id=선출-후-하트비트-흐름>선출 후 하트비트 흐름<a href=#선출-후-하트비트-흐름 class=hanchor arialabel=Anchor>&#8983;</a></h3><pre class=mermaid>sequenceDiagram
+    participant L as 노드 3 (리더)
+    participant F1 as 노드 1 (팔로워)
+    participant F2 as 노드 2 (팔로워)
+
+    loop 매 1초 (setInterval 1000ms)
+        L-&gt;&gt;F1: POST /leader/heartbeat {leaderId:3, term:6}
+        L-&gt;&gt;F2: POST /leader/heartbeat {leaderId:3, term:6}
+        Note over F1: term(6) &gt;= currentTerm(6)&lt;br/&gt;resetElectionTimeout()&lt;br/&gt;타임아웃 리셋: 3~5초
+        Note over F2: term(6) &gt;= currentTerm(6)&lt;br/&gt;resetElectionTimeout()&lt;br/&gt;타임아웃 리셋: 3~5초
+        F1--&gt;&gt;L: {ok:true}
+        F2--&gt;&gt;L: {ok:true}
+    end
+
+    Note over L,F2: 하트비트(1초) &lt;&lt; 타임아웃(3~5초)&lt;br/&gt;→ 정상 상태에서는 타임아웃이 절대 만료되지 않음</pre><p><strong>하트비트 전송 코드</strong> (node.ts:225-245):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=kd>function</span> <span class=nx>startHeartbeat</span><span class=p>(</span><span class=nx>term</span>: <span class=kt>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>stopHeartbeat</span><span class=p>();</span> <span class=c1>// 기존 타이머 제거
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=nx>heartbeatTimer</span> <span class=o>=</span> <span class=nx>setInterval</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 💓 하트비트 전송 (턴 </span><span class=si>${</span><span class=nx>term</span><span class=si>}</span><span class=sb>)`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// ★ 자신(리더)를 제외한 peers에만 전송
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>peers</span><span class=p>.</span><span class=nx>forEach</span><span class=p>(</span><span class=kr>async</span> <span class=p>(</span><span class=nx>peerUrl</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>await</span> <span class=nx>fetch</span><span class=p>(</span><span class=sb>`</span><span class=si>${</span><span class=nx>peerUrl</span><span class=si>}</span><span class=sb>/leader/heartbeat`</span><span class=p>,</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=nx>method</span><span class=o>:</span> <span class=s1>&#39;POST&#39;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>          <span class=nx>headers</span><span class=o>:</span> <span class=p>{</span> <span class=s1>&#39;Content-Type&#39;</span><span class=o>:</span> <span class=s1>&#39;application/json&#39;</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>          <span class=nx>body</span>: <span class=kt>JSON.stringify</span><span class=p>({</span> <span class=nx>leaderId</span>: <span class=kt>nodeId</span><span class=p>,</span> <span class=nx>term</span> <span class=p>}),</span>
+</span></span><span class=line><span class=cl>          <span class=nx>signal</span>: <span class=kt>AbortSignal.timeout</span><span class=p>(</span><span class=mi>1000</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=p>});</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 노드 다운 시 무시
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>});</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=mi>1000</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>하트비트 수신 핸들러</strong> (node.ts:352-375):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=nx>app</span><span class=p>.</span><span class=nx>post</span><span class=p>(</span><span class=s1>&#39;/leader/heartbeat&#39;</span><span class=p>,</span> <span class=p>(</span><span class=nx>req</span><span class=p>,</span> <span class=nx>res</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=p>{</span> <span class=nx>leaderId</span><span class=p>,</span> <span class=nx>term</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>req</span><span class=p>.</span><span class=nx>body</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nx>term</span> <span class=o>&gt;=</span> <span class=nx>currentTerm</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=nx>leaderId</span> <span class=o>!==</span> <span class=nx>currentLeaderId</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 💓 새로운 리더로부터 하트비트 수신`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>currentLeaderId</span> <span class=o>=</span> <span class=nx>leaderId</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>currentTerm</span> <span class=o>=</span> <span class=nx>term</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>resetElectionTimeout</span><span class=p>();</span> <span class=c1>// ★ 핵심! 타임아웃 리셋
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>res</span><span class=p>.</span><span class=nx>json</span><span class=p>({</span> <span class=nx>ok</span>: <span class=kt>true</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span></code></pre></div><p><strong>타이밍 관계</strong>:</p><ul><li>하트비트 전송: <strong>1초</strong> (<code>setInterval(1000)</code>)</li><li>선출 타임아웃: <strong>3~5초</strong> (<code>3000 + Math.random() * 2000</code>)</li><li><strong>하트비트 주기 &#171; 타임아웃 범위</strong> → 정상 상태에서는 타임아웃 절대 만료 안 됨</li></ul><h3 id=리더-장애-감지와-재선출>리더 장애 감지와 재선출<a href=#리더-장애-감지와-재선출 class=hanchor arialabel=Anchor>&#8983;</a></h3><h4 id=시나리오-kill-3--노드-2가-새-리더로-선출>시나리오: kill 3 → 노드 2가 새 리더로 선출<a href=#시나리오-kill-3--노드-2가-새-리더로-선출 class=hanchor arialabel=Anchor>&#8983;</a></h4><pre class=mermaid>sequenceDiagram
+    participant CLI as 클러스터 CLI
+    participant N3 as 노드 3 (리더)
+    participant N1 as 노드 1 (팔로워)
+    participant N2 as 노드 2 (팔로워)
+
+    CLI-&gt;&gt;N3: kill 3 (SIGTERM)
+    Note over N3: 프로세스 종료&lt;br/&gt;하트비트 중단
+    destroy N3
+
+    Note over N1: 하트비트 안 옴...
+    Note over N2: 하트비트 안 옴...
+
+    Note over N2: 3.5초 후 타임아웃 만료!&lt;br/&gt;currentLeaderId = null&lt;br/&gt;accepted 상태 리셋&lt;br/&gt;→ runElection()
+
+    Note over N2: promisedProposal = 6&lt;br/&gt;electionRound = max(0, ceil(6/3)) = 2&lt;br/&gt;electionRound++ = 3&lt;br/&gt;proposalNumber = 2+(3*3) = 11
+
+    N2-&gt;&gt;N1: PREPARE(#11)
+    N2-&gt;&gt;N2: PREPARE(#11) (자신)
+    N2--xN3: PREPARE(#11) (타임아웃)
+
+    Note over N1: 11 &gt; 6 → 약속!&lt;br/&gt;promisedProposal=11&lt;br/&gt;accepted 리셋
+    N1--&gt;&gt;N2: {promise:true}
+    Note over N2: 자신도 약속
+
+    Note over N2: 약속 2/3 (필요 2) ✅
+
+    N2-&gt;&gt;N1: ACCEPT(#11, value:2)
+    N2-&gt;&gt;N2: ACCEPT(#11, value:2) (자신)
+    N2--xN3: ACCEPT(#11, value:2) (타임아웃)
+
+    Note over N1: 11 &gt;= 11 → 수락!&lt;br/&gt;currentLeaderId=2&lt;br/&gt;currentTerm=11&lt;br/&gt;resetElectionTimeout()
+    N1--&gt;&gt;N2: {accepted:true}
+    Note over N2: 자신도 수락
+
+    Note over N2: 수락 2/3 (필요 2) ✅&lt;br/&gt;새 리더 확정! 👑&lt;br/&gt;electionTimer 중지&lt;br/&gt;startHeartbeat(11)
+
+    loop 매 1초
+        N2-&gt;&gt;N1: heartbeat {leaderId:2, term:11}
+        Note over N1: resetElectionTimeout()
+    end</pre><p><strong>electionRound 조정 로직</strong> (node.ts:70-71):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>!==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>electionRound</span> <span class=o>=</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>max</span><span class=p>(</span><span class=nx>electionRound</span><span class=p>,</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>ceil</span><span class=p>(</span><span class=nx>promisedProposal</span> <span class=o>/</span> <span class=nx>allNodes</span><span class=p>.</span><span class=nx>length</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=nx>electionRound</span><span class=o>++</span><span class=p>;</span>
+</span></span></code></pre></div><p><strong>예시</strong>:</p><ul><li><code>promisedProposal = 6</code>, <code>allNodes.length = 3</code></li><li><code>electionRound = max(0, ceil(6/3)) = max(0, 2) = 2</code></li><li><code>electionRound++ = 3</code></li><li><code>proposalNumber = 2 + (3*3) = 11</code></li></ul><p><strong>과반수 요구</strong>:</p><ul><li>3개 노드 중 1개 다운 → 2개 응답 (= 과반수) → 선출 가능!</li><li><strong>Paxos의 장애 허용 능력</strong>: N개 노드에서 (N-1)/2개 장애 허용</li></ul><h4 id=재선출-후-상태>재선출 후 상태<a href=#재선출-후-상태 class=hanchor arialabel=Anchor>&#8983;</a></h4><table><thead><tr><th>노드</th><th>promisedProposal</th><th>acceptedProposal</th><th>acceptedValue</th><th>currentLeaderId</th><th>currentTerm</th><th>heartbeatTimer</th><th>electionTimer</th><th>역할</th></tr></thead><tbody><tr><td>1</td><td>11</td><td>11</td><td>2</td><td><strong>2</strong></td><td><strong>11</strong></td><td>null</td><td>활성 (3~5초)</td><td>팔로워</td></tr><tr><td>2</td><td>11</td><td>11</td><td>2</td><td><strong>2</strong></td><td><strong>11</strong></td><td><strong>활성 (1초)</strong></td><td><strong>null (중지)</strong></td><td><strong>리더</strong> 👑</td></tr><tr><td>3</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td><strong>DOWN</strong></td></tr></tbody></table><h3 id=노드-재시작과-팔로워-합류>노드 재시작과 팔로워 합류<a href=#노드-재시작과-팔로워-합류 class=hanchor arialabel=Anchor>&#8983;</a></h3><h4 id=시나리오-start-3--노드-3이-팔로워로-자연스럽게-합류>시나리오: start 3 → 노드 3이 팔로워로 자연스럽게 합류<a href=#시나리오-start-3--노드-3이-팔로워로-자연스럽게-합류 class=hanchor arialabel=Anchor>&#8983;</a></h4><pre class=mermaid>sequenceDiagram
+    participant CLI as 클러스터 CLI
+    participant N2 as 노드 2 (리더)
+    participant N3 as 노드 3 (재시작)
+
+    CLI-&gt;&gt;N3: start 3 (새 프로세스 spawn)
+    Note over N3: 모든 상태 초기화&lt;br/&gt;currentLeaderId=null&lt;br/&gt;currentTerm=0&lt;br/&gt;Express 서버 시작 (:3003)&lt;br/&gt;랜덤 딜레이: 1.8초 대기
+
+    N2-&gt;&gt;N3: heartbeat {leaderId:2, term:11}
+    Note over N3: term(11) &gt;= currentTerm(0)&lt;br/&gt;새 리더 감지!&lt;br/&gt;currentLeaderId=2&lt;br/&gt;currentTerm=11&lt;br/&gt;resetElectionTimeout()
+    N3--&gt;&gt;N2: {ok:true}
+
+    Note over N3: 딜레이 만료 (1.8초)&lt;br/&gt;currentLeaderId=2 (null 아님)&lt;br/&gt;→ runElection() 호출 안 함! ✅
+
+    N2-&gt;&gt;N3: heartbeat {leaderId:2, term:11}
+    Note over N3: resetElectionTimeout()&lt;br/&gt;안정적으로 팔로워 동작</pre><p><strong>재시작 초기화 흐름</strong> (node.ts:393-409):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=line><span class=cl><span class=nx>app</span><span class=p>.</span><span class=nx>listen</span><span class=p>(</span><span class=nx>port</span><span class=p>,</span> <span class=p>()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 🚀 포트 </span><span class=si>${</span><span class=nx>port</span><span class=si>}</span><span class=sb>에서 수신 중...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 1~3초 랜덤 딜레이
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kr>const</span> <span class=nx>delay</span> <span class=o>=</span> <span class=mi>1000</span> <span class=o>+</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>random</span><span class=p>()</span> <span class=o>*</span> <span class=mi>2000</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 리더 조회 전 </span><span class=si>${</span><span class=nb>Math</span><span class=p>.</span><span class=nx>round</span><span class=p>(</span><span class=nx>delay</span><span class=p>)</span><span class=si>}</span><span class=sb>ms 대기...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=c1>// 딜레이 후 리더가 없으면 선출 시작
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>setTimeout</span><span class=p>(()</span> <span class=o>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=nx>currentLeaderId</span> <span class=o>===</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span> <span class=c1>// ★ 핵심 조건
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`[노드 </span><span class=si>${</span><span class=nx>nodeId</span><span class=si>}</span><span class=sb>] 리더 없음, 리더 선출 시작...`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=nx>runElection</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>},</span> <span class=nx>delay</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>resetElectionTimeout</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>});</span>
+</span></span></code></pre></div><p><strong>핵심 메커니즘</strong>:</p><ol><li>노드 3이 재시작하면 모든 상태 변수가 초기값 (<code>currentLeaderId = null</code>)</li><li>랜덤 딜레이 (1~3초) 동안 대기</li><li>이 시간 동안 리더(노드 2)의 하트비트(1초 주기)가 도착</li><li>하트비트 수신 시 <code>currentLeaderId = 2</code>로 설정</li><li>딜레이 만료 시 <code>currentLeaderId !== null</code> → 선출 시작 안 함!</li><li>자연스럽게 팔로워로 합류</li></ol><h4 id=재시작-후-안정-상태>재시작 후 안정 상태<a href=#재시작-후-안정-상태 class=hanchor arialabel=Anchor>&#8983;</a></h4><table><thead><tr><th>노드</th><th>promisedProposal</th><th>acceptedProposal</th><th>acceptedValue</th><th>currentLeaderId</th><th>currentTerm</th><th>electionTimer</th><th>역할</th></tr></thead><tbody><tr><td>1</td><td>11</td><td>11</td><td>2</td><td>2</td><td>11</td><td>활성</td><td>팔로워</td></tr><tr><td>2</td><td>11</td><td>11</td><td>2</td><td>2</td><td>11</td><td>null (중지)</td><td>리더 👑</td></tr><tr><td>3</td><td><strong>null</strong></td><td><strong>null</strong></td><td><strong>null</strong></td><td><strong>2 (학습)</strong></td><td><strong>11 (학습)</strong></td><td><strong>활성</strong></td><td><strong>팔로워 (새로 합류)</strong></td></tr></tbody></table><p><strong>주목</strong>: 노드 3은 Paxos 상태가 null이지만 하트비트만으로 리더 정보를 학습합니다. 메모리 기반 구현이므로 재시작 시 상태 복구 없음.</p><h3 id=타이밍-관계-요약>타이밍 관계 요약<a href=#타이밍-관계-요약 class=hanchor arialabel=Anchor>&#8983;</a></h3><table><thead><tr><th>타이머</th><th>시간</th><th>구현</th><th>용도</th></tr></thead><tbody><tr><td>하트비트 전송 주기</td><td><strong>1초</strong></td><td><code>setInterval(1000)</code></td><td>리더가 팔로워에게 생존 신호 전송</td></tr><tr><td>하트비트 타임아웃 (선출 트리거)</td><td><strong>3~5초</strong></td><td><code>3000 + Math.random() * 2000</code></td><td>팔로워가 리더 장애 감지</td></tr><tr><td>초기 선출 딜레이</td><td><strong>1~3초</strong></td><td><code>1000 + Math.random() * 2000</code></td><td>클러스터 시작 시 동시 선출 방지</td></tr><tr><td>선거 실패 후 재시도 딜레이</td><td><strong>2~5초</strong></td><td><code>2000 + Math.random() * 3000</code></td><td>Phase 실패 후 재시도 간격</td></tr><tr><td>HTTP 요청 타임아웃</td><td><strong>1초</strong></td><td><code>AbortSignal.timeout(1000)</code></td><td>네트워크 요청 타임아웃</td></tr></tbody></table><p><strong>타이밍 설계 원칙</strong>:</p><ul><li><strong>하트비트 주기 &#171; 타임아웃</strong> → 정상 상태에서 타임아웃 절대 만료 안 됨</li><li><strong>모든 딜레이/타임아웃에 랜덤 범위</strong> → 선출 충돌 방지 (livelock 방지)</li><li><strong>HTTP 타임아웃 &#171; 하트비트 주기</strong> → 빠른 장애 감지</li></ul><h3 id=전체-흐름-한눈에-보기>전체 흐름 한눈에 보기<a href=#전체-흐름-한눈에-보기 class=hanchor arialabel=Anchor>&#8983;</a></h3><pre class=mermaid>flowchart TD
+    START[&#34;클러스터 시작&lt;br/&gt;runCluster.ts 실행&#34;] --&gt; SPAWN[&#34;3개 노드 프로세스 spawn&lt;br/&gt;(child_process.spawn)&#34;]
+
+    SPAWN --&gt; NODE1[&#34;노드 1: Express 서버 시작&lt;br/&gt;랜덤 딜레이 (1.5초)&#34;]
+    SPAWN --&gt; NODE2[&#34;노드 2: Express 서버 시작&lt;br/&gt;랜덤 딜레이 (2.1초)&#34;]
+    SPAWN --&gt; NODE3[&#34;노드 3: Express 서버 시작&lt;br/&gt;랜덤 딜레이 (1.2초)&#34;]
+
+    NODE1 --&gt; TIMEOUT1[&#34;resetElectionTimeout()&lt;br/&gt;타임아웃: 4.1초&#34;]
+    NODE2 --&gt; TIMEOUT2[&#34;resetElectionTimeout()&lt;br/&gt;타임아웃: 3.5초&#34;]
+    NODE3 --&gt; TIMEOUT3[&#34;resetElectionTimeout()&lt;br/&gt;타임아웃: 4.2초&#34;]
+
+    NODE3 --&gt; FIRST[&#34;딜레이 만료 (1.2초)&lt;br/&gt;가장 먼저!&#34;]
+    FIRST --&gt; ELECTION1[&#34;runElection()&lt;br/&gt;제안 번호 #6&#34;]
+
+    ELECTION1 --&gt; P1[&#34;Phase 1: PREPARE(#6)&lt;br/&gt;→ 3개 약속&#34;]
+    P1 --&gt; P2[&#34;Phase 2: ACCEPT(#6, val:3)&lt;br/&gt;→ 3개 수락&#34;]
+    P2 --&gt; LEADER1[&#34;노드 3 리더 확정 👑&lt;br/&gt;electionTimer 중지&lt;br/&gt;startHeartbeat(6)&#34;]
+
+    LEADER1 --&gt; HB_LOOP[&#34;하트비트 루프&lt;br/&gt;(1초마다)&#34;]
+
+    HB_LOOP --&gt; HB1[&#34;노드 1 수신&lt;br/&gt;resetElectionTimeout()&#34;]
+    HB_LOOP --&gt; HB2[&#34;노드 2 수신&lt;br/&gt;resetElectionTimeout()&#34;]
+
+    HB1 --&gt; STABLE[&#34;안정 상태&lt;br/&gt;리더: 노드 3, 턴: 6&#34;]
+    HB2 --&gt; STABLE
+
+    STABLE --&gt; KILL[&#34;사용자: kill 3&lt;br/&gt;리더 프로세스 종료&#34;]
+
+    KILL --&gt; STOP_HB[&#34;하트비트 중단&#34;]
+
+    STOP_HB --&gt; DETECT1[&#34;노드 1: 하트비트 안 옴&lt;br/&gt;타임아웃 대기 (4.1초)&#34;]
+    STOP_HB --&gt; DETECT2[&#34;노드 2: 하트비트 안 옴&lt;br/&gt;타임아웃 대기 (3.5초)&#34;]
+
+    DETECT2 --&gt; REELECTION[&#34;노드 2 타임아웃 만료 (3.5초)&lt;br/&gt;accepted 상태 리셋&lt;br/&gt;runElection()&#34;]
+
+    REELECTION --&gt; RE_P1[&#34;Phase 1: PREPARE(#11)&lt;br/&gt;→ 2개 약속 (노드 3 DOWN)&#34;]
+    RE_P1 --&gt; RE_P2[&#34;Phase 2: ACCEPT(#11, val:2)&lt;br/&gt;→ 2개 수락&#34;]
+    RE_P2 --&gt; LEADER2[&#34;노드 2 리더 확정 👑&lt;br/&gt;startHeartbeat(11)&#34;]
+
+    LEADER2 --&gt; HB_LOOP2[&#34;하트비트 루프&lt;br/&gt;(1초마다)&#34;]
+
+    HB_LOOP2 --&gt; STABLE2[&#34;안정 상태&lt;br/&gt;리더: 노드 2, 턴: 11&#34;]
+
+    STABLE2 --&gt; RESTART[&#34;사용자: start 3&lt;br/&gt;새 프로세스 spawn&#34;]
+
+    RESTART --&gt; NODE3_NEW[&#34;노드 3 재시작&lt;br/&gt;모든 상태 초기화&lt;br/&gt;랜덤 딜레이 (1.8초)&#34;]
+
+    NODE3_NEW --&gt; HB_RECEIVE[&#34;하트비트 수신&lt;br/&gt;currentLeaderId=2&lt;br/&gt;currentTerm=11&#34;]
+
+    HB_RECEIVE --&gt; DELAY_EXPIRE[&#34;딜레이 만료 (1.8초)&lt;br/&gt;currentLeaderId !== null&lt;br/&gt;→ 선출 안 함&#34;]
+
+    DELAY_EXPIRE --&gt; FOLLOWER[&#34;노드 3 팔로워로 합류&lt;br/&gt;안정적으로 동작&#34;]
+
+    FOLLOWER --&gt; FINAL[&#34;최종 클러스터 상태&lt;br/&gt;리더: 노드 2&lt;br/&gt;팔로워: 노드 1, 3&#34;]
+
+    style START fill:#e0f0ff,stroke:#333
+    style LEADER1 fill:#ffd700,stroke:#333,stroke-width:3px
+    style LEADER2 fill:#ffd700,stroke:#333,stroke-width:3px
+    style KILL fill:#ffcccc,stroke:#333
+    style REELECTION fill:#ffddaa,stroke:#333
+    style FOLLOWER fill:#ccffcc,stroke:#333
+    style FINAL fill:#ccccff,stroke:#333,stroke-width:2px</pre><h2 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li>요즘 개발자를 위한 시스템 설계 수업. 디렌드라 신하, 테자스 초프라 저. 길벗</li><li><a href=https://www.ibm.com/history/700>https://www.ibm.com/history/700</a></li><li><a href=https://setiathome.berkeley.edu/sah_graphics.php>https://setiathome.berkeley.edu/sah_graphics.php</a></li><li>CLAUDE</li><li>Perpexity</li></ul></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/%EB%B6%84%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%84%A4%EA%B3%84-1-paxos-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98-go/><span class=button__icon>←</span>
+<span class=button__text>분산 시스템 설계(1) - Paxos 알고리즘(GO)</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/go%EB%A5%BC-%EC%95%8C%EC%95%84%EB%B3%B4%EC%9E%90-1/><span class=button__text>go를 알아보자(1)</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script><script type=module>
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true });
+</script></div></body></html>

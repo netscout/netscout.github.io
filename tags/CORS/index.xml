@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CORS on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/CORS/</link><description>Recent content in CORS on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Fri, 21 Jun 2024 08:46:23 +0900</lastBuildDate><atom:link href="https://netscout.github.io/tags/CORS/index.xml" rel="self" type="application/rss+xml"/><item><title>S3에 업로드된 이미지 접근시 CORS 이슈, 그리고 no-cors</title><link>https://netscout.github.io/posts/s3%EC%97%90-%EC%97%85%EB%A1%9C%EB%93%9C%EB%90%9C-%EC%9D%B4%EB%AF%B8%EC%A7%80-%EC%A0%91%EA%B7%BC%EC%8B%9C-cors-%EC%9D%B4%EC%8A%88-%EA%B7%B8%EB%A6%AC%EA%B3%A0-no-cors/</link><pubDate>Fri, 21 Jun 2024 08:46:23 +0900</pubDate><guid>https://netscout.github.io/posts/s3%EC%97%90-%EC%97%85%EB%A1%9C%EB%93%9C%EB%90%9C-%EC%9D%B4%EB%AF%B8%EC%A7%80-%EC%A0%91%EA%B7%BC%EC%8B%9C-cors-%EC%9D%B4%EC%8A%88-%EA%B7%B8%EB%A6%AC%EA%B3%A0-no-cors/</guid><description>현재 개발 중인 서비스는 이미지나 기타 파일을 업로드하고 가져올 때 NCP(네이버 클라우드 플랫폼)의 Object Storage를 사용 중입니다. 제목에서는 S3라고 했는데? 라고 생각하실 수 있지만, NCP의 Object Storage는 S3와 호환되는 API를 …</description><content>&lt;h2 id="개요">개요&lt;/h2>
+&lt;p>현재 개발 중인 서비스는 이미지나 기타 파일을 업로드하고 가져올 때 NCP(네이버 클라우드 플랫폼)의 Object Storage를 사용 중입니다. &lt;code>제목에서는 S3라고 했는데?&lt;/code> 라고 생각하실 수 있지만, NCP의 Object Storage는 S3와 호환되는 API를 제공하기 때문에 사실상 S3와 동일하게 생각하고 사용할 수 있습니다. 따라서 이후에는 그냥 S3라고 표현하겠습니다.&lt;/p>
+&lt;p>S3에 업로드된 이미지 등의 에셋을 가져올 때는 CORS 이슈가 발생할 수 있습니다. 이 문제를 해결하려면 S3의 버킷에 CORS 설정을 추가해줘야 합니다. 여러가지 방법이 있을 수 있지만 이 글에서는 &lt;a href="https://s3browser.com/">S3 Browser&lt;/a>를 사용하여 CORS 설정을 추가하는 방법을 알아보겠습니다.&lt;/p>
+&lt;h2 id="버킷에-cors-설정하기">버킷에 CORS 설정하기&lt;/h2>
+&lt;p>S3 Browser를 통해 S3에 접속합니다. 만약 NCP의 Object Storage와 같이 S3 API와 호환되는 서비스를 사용 중이라면, &lt;strong>Account type&lt;/strong>을 &lt;strong>S3 Compatible Storage&lt;/strong>로 선택하고, 접속합니다.&lt;/p>
+&lt;p align="center">&lt;img src="./cors01.png">&lt;/p>
+&lt;p>접속하면, 해당 계정의 버킷 목록이 나타납니다. CORS를 설정하고자 하는 버킷을 선택하고 &lt;strong>Ctrl + R&lt;/strong> 을 누르거나 마우스 우클릭 후 &lt;strong>CORS Configuration&lt;/strong>을 선택합니다. 그리고 XML 형식으로 CORS 설정을 추가합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&amp;lt;?xml version=&amp;#34;1.0&amp;#34; encoding=&amp;#34;UTF-8&amp;#34; standalone=&amp;#34;yes&amp;#34;?&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;CORSConfiguration&lt;/span> &lt;span class="na">xmlns=&lt;/span>&lt;span class="s">&amp;#34;http://s3.amazonaws.com/doc/2006-03-01/&amp;#34;&lt;/span>&lt;span class="nt">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;CORSRule&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;AllowedMethod&amp;gt;&lt;/span>GET&lt;span class="nt">&amp;lt;/AllowedMethod&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;AllowedOrigin&amp;gt;&lt;/span>http://localhost:3000&lt;span class="nt">&amp;lt;/AllowedOrigin&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;AllowedHeader&amp;gt;&lt;/span>*&lt;span class="nt">&amp;lt;/AllowedHeader&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;/CORSRule&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/CORSConfiguration&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 &lt;strong>Apply&lt;/strong> 버튼을 눌러 설정을 저장합니다. 이제 해당 버킷에 업로드된 이미지 등의 에셋을 가져올 때 CORS 이슈가 발생하지 않습니다&amp;hellip; 그런데 말입니다. 😣&lt;/p>
+&lt;h2 id="그런데-말입니다">그런데 말입니다&lt;/h2>
+&lt;p>그런데 한 가지 변수가 있습니다. 이 글의 제목에서 언급된 &lt;strong>no-cors&lt;/strong>입니다. &lt;strong>no-cors&lt;/strong>가 뭔지 일단 알아보야겠죠? &lt;strong>no-cors&lt;/strong>는 &lt;a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-Fetch-Mode">Sec-Fetch-Mode&lt;/a> 헤더의 설정 값 중에 하나입니다.&lt;/p>
+&lt;h3 id="sec-fetch-mode">Sec-Fetch-Mode??&lt;/h3>
+&lt;p>MDN의 설명을 보면, 유저가 HTML 페이지를 왔다 갔다 하는 요청과 이미지 등의 리소스를 가져오는 요청을 구분하기 위해 사용된다고 합니다. 그러니까 HTML 문서를 요청하는 경우는 &lt;strong>navigate&lt;/strong>, &lt;a href="https://developer.mozilla.org/en-US/docs/Web/API/Request/mode#value">이미지 등의 리소스를 요청하는 경우는 &lt;strong>no-cors&lt;/strong>로 설정된다는 거죠.&lt;/a>&lt;/p>
+&lt;p>&lt;strong>no-cors&lt;/strong> 요청은 메서드가 HEAD, GET, POST 중 하나여야 하고, &lt;a href="https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header">CORS에서 허용된 헤더&lt;/a> 만을 사용할 수 있으며 요청의 결과로 받은 응답을 javascript 등에서 접근할 수 없다고 합니다.&lt;/p>
+&lt;p>이제 제가 왜 갑자기 &lt;strong>no-cors&lt;/strong> 이야기를 하는지 눈치 채신 분들도 있을 겁니다. css의 &lt;strong>background-image&lt;/strong> 속성에 S3에 업로르된 이미지가 url로 지정되는 부분이 있었는데, 바로 여기서 그 이미지를 가져오는 요청이 &lt;strong>no-cors&lt;/strong> 였던 겁니다!&lt;/p>
+&lt;p>그러니까 S3에 CORS 설정을 해줬지만 계속 CORS 오류가 발생한 거죠&amp;hellip; 😫&lt;/p>
+&lt;h2 id="해결-방법">해결 방법&lt;/h2>
+&lt;p>관련해서 문제를 찾다보니 이미 관련해서 먼저 고민한 분들이 있었습니다. &lt;a href="https://velog.io/@wwlee94/CloudFront-%EC%9D%B4%EB%AF%B8%EC%A7%80-CORS-%EC%9D%B4%EC%8A%88">CloudFront 이미지 CORS 이슈&lt;/a> 를 보면, 결론적으로 이 문제는 &lt;strong>Origin&lt;/strong> 헤더가 누락되었기 때문에 발생한 문제였습니다. CORS 허용이 필요한 경우 요청에 대한 응답으로 &lt;strong>Access-Control-Allow-Origin&lt;/strong> 헤더에 요청한 &lt;strong>Origin&lt;/strong>을 포함해서 돌려줘야 하는데, S3는 요청에 &lt;strong>Origin&lt;/strong> 헤더가 없는 경우 응답에 &lt;strong>Access-Control-Allow-Origin&lt;/strong> 헤더를 넣어주지 않는다는 거죠!&lt;/p>
+&lt;p>그래서 기존에는 S3의 에셋에 직접 접근 하던걸 NCP의 CDN+로 접근하도록 변경한 다음에, CDN+가 응답 헤더에 &lt;code>Access-Control-Allow-Origin: *&lt;/code>를 추가해주도록 설정해서 문제를 해결했습니다. 에셋에 접근하는 도메인이 하나가 아니었기 때문에 부득이 하게 &lt;code>*&lt;/code>로 설정했지만, 그렇지 않은 경우는 명시적으로 도메인을 적어줘야 합니다.&lt;/p>
+&lt;h2 id="난-잘되는데">난 잘되는데?&lt;/h2>
+&lt;p>참고로 브라우저 마다 &lt;strong>no-cors&lt;/strong> 를 처리하는 방법이 조금씩 다른 듯 합니다. 테스트 결과 별도의 처리 없이도 &lt;strong>Firefox&lt;/strong>에서는 이미지를 가져오는 데 문제가 없었지만, &lt;strong>Chrome&lt;/strong>에서는 문제가 발생했습니다.&lt;/p>
+&lt;h2 id="참고-자료">참고 자료&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-Fetch-Mode">Sec-Fetch-Mode&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header">CORS-safelisted_request_header&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://velog.io/@wwlee94/CloudFront-%EC%9D%B4%EB%AF%B8%EC%A7%80-CORS-%EC%9D%B4%EC%8A%88">CloudFront 이미지 CORS 이슈&lt;/a>&lt;/li>
+&lt;/ul></content></item></channel></rss>

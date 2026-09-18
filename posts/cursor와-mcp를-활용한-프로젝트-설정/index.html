@@ -1,0 +1,284 @@
+<!doctype html><html lang=ko><head><title>Cursor와 MCP를 활용한 프로젝트 설정 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content='2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &ldquo;xxx"에 대해서 …'><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="Cursor와 MCP를 활용한 프로젝트 설정"><meta property="og:description" content='2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &ldquo;xxx"에 대해서 …'><meta property="og:url" content="https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2025-05-24 09:36:07 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/>Cursor와 MCP를 활용한 프로젝트 설정</a></h1><div class=post-meta><time class=post-date>2025-05-24</time>
+<span class=post-reading-time>9 분 (1722 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/AI/>AI</a>&nbsp;
+#<a href=https://netscout.github.io/tags/Cursor/>Cursor</a>&nbsp;
+#<a href=https://netscout.github.io/tags/MCP/>MCP</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#앉아봐라-그-시절에는-말이야>앉아봐라 그 시절에는 말이야&mldr;</a></li><li><a href=#mcp가-정말-좋다며-근데>MCP가 정말 좋다며? 근데&mldr;</a></li><li><a href=#context7과-sequential-thinking>Context7과 Sequential Thinking</a></li><li><a href=#직접-해보자>직접 해보자.</a></li><li><a href=#어떤-상황이냐>어떤 상황이냐</a></li><li><a href=#ai-시대는-일하는-방법이-다르구나>AI 시대는 일하는 방법이 다르구나!</a></li></ul></nav></div><div class=post-content><div><h2 id=앉아봐라-그-시절에는-말이야>앉아봐라 그 시절에는 말이야&mldr;<a href=#앉아봐라-그-시절에는-말이야 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &ldquo;xxx"에 대해서 검색해보라고 했더니 정말 검색창에 &ldquo;xxx"만 입력하는 걸 보고 경악했던 일도 있었습니다. 그 당시 구글은 대화 상대도 아니었고 그저 정보를 찾기 위한 검색툴에 불과했으니 툴을 사용해보지 않은 사람들은 사용이 어려웠던 겁니다.</p><p>그런데 ChatGPT를 기점으로 시대가 많이 변하더니 이젠 변화의 속도가 점점 가속화 되어 잠시만 눈을 떼면 따라잡기가 어렵다는 느낌이 듭니다. 심지어 이러다가 뒤쳐지는 정도가 아니라 아예 쓸모없어지는게 아닌가 하는 공포마저 들게 됩니다. 별 수 있나요&mldr; 최소한 이런 발전에 뒤쳐지지만 말자고 생각하고 노력하는 수 밖에 없죠!</p><h2 id=mcp가-정말-좋다며-근데>MCP가 정말 좋다며? 근데&mldr;<a href=#mcp가-정말-좋다며-근데 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>최근에는 MCP나 A2A 같이 에이전트의 활용에 대한 내용들이 많이 나오는 거 같습니다. A2A는 에이전트 간의 협업에 대한 거고, MCP는 에이전트가 활용할 수 있는 툴에 대한 거니까 범위는 다르지만 어쨌건 에이전트 시대에 에이전트를 좀 더 잘 활용할 수 있는 시대로 변화하고 있음은 분명합니다. 세상은 돌고 도는 거라 2000년대 초반에 SOAP를 기반으로 한 웹서비스의 느낌이 들기도 합니다만 어쨌건 구조가 비슷하게 느껴질 뿐 하는 일은 천지차이죠.</p><p>MCP에 대해 사람들이 이야기 하는 걸 들어보면 분명 엄청난 프로토콜은 맞습니다만, 저와는 상관이 없어보였습니다. 피그마에서 디자인한 내용을 MCP를 통해 프론트까지 구현한다던지 하는 건 분명 대단하지만, 저는 피그마를 사용하지 않기 때문에 &ldquo;아 저게 어떤 상황에서는 미친 생산성이 나오겠구나"하는 정도였죠. 근데 진짜 누구에게나 사용가능한 미친 MCP를 발견했습니다. 아니, 이미 존재하고 있었지만 조합해보니 대단했던 거죠.</p><h2 id=context7과-sequential-thinking>Context7과 Sequential Thinking<a href=#context7과-sequential-thinking class=hanchor arialabel=Anchor>&#8983;</a></h2><p><a href=https://context7.com>Context7</a> 은 AI를 사용하는 데 있어 가장 중요한 부분인 context의 문제를 해결해줍니다. AI를 학습된 내용을 바탕으로 코드나 답변을 생성하기 때문에 뭔가 최신으로 업데이트된 내용은 제대로 고려하지 못합니다. Context7은 주요 프레임워크나 SDK등의 사용법을 주요 언어 및 환경 별로 어떻게 사용해야 하는지 등을 정리해서 모아놓은 사이트이고, Context7 MCP는 에이전트가 이러한 내용을 자율적으로 검색해서 구현이나 답변에 참고할 수 있도록 해줍니다. 최신 정보를 에이전트가 알아서 가져다 쓸 수 있다는 거죠!</p><p>그리고 <a href=https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking>Sequential Thinking MCP Server</a> 는 에이전트가 사용자의 요청을 받았을 때, 구조화된 사고 과정을 거쳐서 큰 문제를 작게 쪼개고 더 나은 방법을 찾기 위해서 자신의 사고를 검증 하는 등 에이전트의 문제 해결력을 더 높여주는 MCP입니다. 이 MCP는 단독으로 사용해도 큰 효과를 주지만 Context7이랑 합치면 더 시너지가 납니다!</p><h2 id=직접-해보자>직접 해보자.<a href=#직접-해보자 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>우선 <a href="https://youtu.be/TrXBzzsUUY4?si=OrOAD1JO8qobF-S8">개발 동생님의 Context7 소개 영상</a> 을 보면, 두 MCP를 활용해서 아주 간단한 사칙연산을 하는 MCP 서버를 만드는 과정을 보여줍니다. 저도 한 번 따라해봤습니다. 와 정말 대박이었습니다. 이 간단한 과정을 통해서 실제 동작하는 MCP 서버를 만들 수 있다니! 이렇게 함으로써 저는 typescript를 이용해서 MCP 서버를 어떻게 만들어야 하는지 한 번에 이해할 수 있었습니다.</p><p>그리고 실제 업무나 개인적으로 스터디할 때 이 MCP를 적극활용하기 시작했습니다. 효과는 정말 대단했습니다. 그 중에 개인 스터디를 위해 준비했던 내용을 공유해보겠습니다.</p><h2 id=어떤-상황이냐>어떤 상황이냐<a href=#어떤-상황이냐 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>최근에 mongodb에 대해서(특히 aggregation pipeline) 한 번 정리하고 싶은 마음이 생겨서 에제 코드를 작성해보고자 했습니다. 그래서 ChatGPT를 통해 기본 구조를 뽑아냈죠. 학생과 선생님 collection이 있는 구조를 설명해주고 초기 데이터를 구성하는 seed 코드를 다음과 같이 생성했습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=line><span class=cl><span class=c1>// seed.js
+</span></span></span><span class=line><span class=cl><span class=c1>// Node.js MongoDB seed script for students and teachers collections
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=p>{</span> <span class=nx>MongoClient</span><span class=p>,</span> <span class=nx>ObjectId</span> <span class=p>}</span> <span class=o>=</span> <span class=nx>require</span><span class=p>(</span><span class=s2>&#34;mongodb&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>faker</span> <span class=o>=</span> <span class=nx>require</span><span class=p>(</span><span class=s2>&#34;faker&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Configuration
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>MONGO_URI</span> <span class=o>=</span> <span class=nx>process</span><span class=p>.</span><span class=nx>env</span><span class=p>.</span><span class=nx>MONGO_URI</span> <span class=o>||</span> <span class=s2>&#34;mongodb://localhost:27017&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>DB_NAME</span> <span class=o>=</span> <span class=nx>process</span><span class=p>.</span><span class=nx>env</span><span class=p>.</span><span class=nx>DB_NAME</span> <span class=o>||</span> <span class=s2>&#34;school&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Constants
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>const</span> <span class=nx>GRADES</span> <span class=o>=</span> <span class=p>[</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=kr>const</span> <span class=nx>CLASSES</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;A&#34;</span><span class=p>,</span> <span class=s2>&#34;B&#34;</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Utility to generate random scores array
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>function</span> <span class=nx>generateScores</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>count</span> <span class=o>=</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>datatype</span><span class=p>.</span><span class=nx>number</span><span class=p>({</span> <span class=nx>min</span><span class=o>:</span> <span class=mi>3</span><span class=p>,</span> <span class=nx>max</span><span class=o>:</span> <span class=mi>5</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nb>Array</span><span class=p>.</span><span class=nx>from</span><span class=p>({</span> <span class=nx>length</span><span class=o>:</span> <span class=nx>count</span> <span class=p>}).</span><span class=nx>map</span><span class=p>(()</span> <span class=p>=&gt;</span> <span class=p>({</span>
+</span></span><span class=line><span class=cl>    <span class=nx>math</span><span class=o>:</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>datatype</span><span class=p>.</span><span class=nx>number</span><span class=p>({</span> <span class=nx>min</span><span class=o>:</span> <span class=mi>40</span><span class=p>,</span> <span class=nx>max</span><span class=o>:</span> <span class=mi>100</span> <span class=p>}),</span>
+</span></span><span class=line><span class=cl>    <span class=nx>english</span><span class=o>:</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>datatype</span><span class=p>.</span><span class=nx>number</span><span class=p>({</span> <span class=nx>min</span><span class=o>:</span> <span class=mi>40</span><span class=p>,</span> <span class=nx>max</span><span class=o>:</span> <span class=mi>100</span> <span class=p>}),</span>
+</span></span><span class=line><span class=cl>    <span class=nx>coding</span><span class=o>:</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>datatype</span><span class=p>.</span><span class=nx>number</span><span class=p>({</span> <span class=nx>min</span><span class=o>:</span> <span class=mi>40</span><span class=p>,</span> <span class=nx>max</span><span class=o>:</span> <span class=mi>100</span> <span class=p>}),</span>
+</span></span><span class=line><span class=cl>  <span class=p>}));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>async</span> <span class=kd>function</span> <span class=nx>seed</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kr>const</span> <span class=nx>client</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>MongoClient</span><span class=p>(</span><span class=nx>MONGO_URI</span><span class=p>,</span> <span class=p>{</span> <span class=nx>useUnifiedTopology</span><span class=o>:</span> <span class=kc>true</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl>  <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>await</span> <span class=nx>client</span><span class=p>.</span><span class=nx>connect</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>db</span> <span class=o>=</span> <span class=nx>client</span><span class=p>.</span><span class=nx>db</span><span class=p>(</span><span class=nx>DB_NAME</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Clear existing data
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>await</span> <span class=nx>db</span><span class=p>.</span><span class=nx>collection</span><span class=p>(</span><span class=s2>&#34;students&#34;</span><span class=p>).</span><span class=nx>deleteMany</span><span class=p>({});</span>
+</span></span><span class=line><span class=cl>    <span class=kr>await</span> <span class=nx>db</span><span class=p>.</span><span class=nx>collection</span><span class=p>(</span><span class=s2>&#34;teachers&#34;</span><span class=p>).</span><span class=nx>deleteMany</span><span class=p>({});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Generate students
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>students</span> <span class=o>=</span> <span class=p>[];</span>
+</span></span><span class=line><span class=cl>    <span class=nx>GRADES</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>grade</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>CLASSES</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>cls</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kr>const</span> <span class=nx>className</span> <span class=o>=</span> <span class=sb>`</span><span class=si>${</span><span class=nx>grade</span><span class=si>}</span><span class=sb>-</span><span class=si>${</span><span class=nx>cls</span><span class=si>}</span><span class=sb>`</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=o>&lt;</span> <span class=mi>18</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          <span class=nx>students</span><span class=p>.</span><span class=nx>push</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>            <span class=nx>_id</span><span class=o>:</span> <span class=k>new</span> <span class=nx>ObjectId</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>            <span class=nx>name</span><span class=o>:</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>name</span><span class=p>.</span><span class=nx>findName</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>            <span class=nx>grade</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=kr>class</span><span class=o>:</span> <span class=nx>className</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>scores</span><span class=o>:</span> <span class=nx>generateScores</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>          <span class=p>});</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=p>});</span>
+</span></span><span class=line><span class=cl>    <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Generate teachers
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>teachers</span> <span class=o>=</span> <span class=p>[];</span>
+</span></span><span class=line><span class=cl>    <span class=nx>GRADES</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>grade</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>CLASSES</span><span class=p>.</span><span class=nx>forEach</span><span class=p>((</span><span class=nx>cls</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kr>const</span> <span class=nx>className</span> <span class=o>=</span> <span class=sb>`</span><span class=si>${</span><span class=nx>grade</span><span class=si>}</span><span class=sb>-</span><span class=si>${</span><span class=nx>cls</span><span class=si>}</span><span class=sb>`</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=nx>teachers</span><span class=p>.</span><span class=nx>push</span><span class=p>({</span>
+</span></span><span class=line><span class=cl>          <span class=nx>_id</span><span class=o>:</span> <span class=k>new</span> <span class=nx>ObjectId</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>          <span class=nx>name</span><span class=o>:</span> <span class=nx>faker</span><span class=p>.</span><span class=nx>name</span><span class=p>.</span><span class=nx>findName</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>          <span class=nx>grade</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>          <span class=kr>class</span><span class=o>:</span> <span class=nx>className</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=p>});</span>
+</span></span><span class=line><span class=cl>      <span class=p>});</span>
+</span></span><span class=line><span class=cl>    <span class=p>});</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Insert seed data
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kr>const</span> <span class=nx>studentResult</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>db</span><span class=p>.</span><span class=nx>collection</span><span class=p>(</span><span class=s2>&#34;students&#34;</span><span class=p>).</span><span class=nx>insertMany</span><span class=p>(</span><span class=nx>students</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kr>const</span> <span class=nx>teacherResult</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>db</span><span class=p>.</span><span class=nx>collection</span><span class=p>(</span><span class=s2>&#34;teachers&#34;</span><span class=p>).</span><span class=nx>insertMany</span><span class=p>(</span><span class=nx>teachers</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Inserted </span><span class=si>${</span><span class=nx>studentResult</span><span class=p>.</span><span class=nx>insertedCount</span><span class=si>}</span><span class=sb> students`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=sb>`Inserted </span><span class=si>${</span><span class=nx>teacherResult</span><span class=p>.</span><span class=nx>insertedCount</span><span class=si>}</span><span class=sb> teachers`</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s2>&#34;Seeding completed successfully.&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>err</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>console</span><span class=p>.</span><span class=nx>error</span><span class=p>(</span><span class=s2>&#34;Error during seeding:&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span> <span class=k>finally</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kr>await</span> <span class=nx>client</span><span class=p>.</span><span class=nx>close</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>seed</span><span class=p>();</span>
+</span></span></code></pre></div><p>이 코드가 아주 정확하냐 뭐 그런건 그렇게 중요하진 않았습니다. 나중에 수정하면 되니까요. 그리고 빈 폴더를 하나 만들고 <code>Cursor</code>를 열고 다음과 같이 요청했습니다. 사용된 모델은 <code>Cluade 3.7 Sonnet</code> 입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-plaintext data-lang=plaintext><span class=line><span class=cl>i need to create node.js app for studying mongodb aggregation pipeline.
+</span></span><span class=line><span class=cl>so i need to create basic project structure and seed script using mongodb node.js driver.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>use context7 for looking for how to use node.js mongodb driver.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>use sequantial thinking mcp to plan how to create basic project structure and seeding mongodb collestion.
+</span></span><span class=line><span class=cl>here&#39;s starter seed script:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>// seed.js
+</span></span><span class=line><span class=cl>// Node.js MongoDB seed script for students and teachers collections
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>const { MongoClient, ObjectId } = require(&#39;mongodb&#39;);
+</span></span><span class=line><span class=cl>const faker = require(&#39;faker&#39;);
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>// Configuration
+</span></span><span class=line><span class=cl>const MONGO_URI = process.env.MONGO_URI || &#39;mongodb://localhost:27017&#39;;
+</span></span><span class=line><span class=cl>const DB_NAME = process.env.DB_NAME || &#39;school&#39;;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>// Constants
+</span></span><span class=line><span class=cl>const GRADES = [1, 2, 3, 4, 5, 6];
+</span></span><span class=line><span class=cl>const CLASSES = [&#39;A&#39;, &#39;B&#39;];
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>// Utility to generate random scores array
+</span></span><span class=line><span class=cl>function generateScores() {
+</span></span><span class=line><span class=cl>  const count = faker.datatype.number({ min: 3, max: 5 });
+</span></span><span class=line><span class=cl>  return Array.from({ length: count }).map(() =&gt; ({
+</span></span><span class=line><span class=cl>    math: faker.datatype.number({ min: 40, max: 100 }),
+</span></span><span class=line><span class=cl>    english: faker.datatype.number({ min: 40, max: 100 }),
+</span></span><span class=line><span class=cl>    coding: faker.datatype.number({ min: 40, max: 100 })
+</span></span><span class=line><span class=cl>  }));
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>async function seed() {
+</span></span><span class=line><span class=cl>  const client = new MongoClient(MONGO_URI, { useUnifiedTopology: true });
+</span></span><span class=line><span class=cl>  try {
+</span></span><span class=line><span class=cl>    await client.connect();
+</span></span><span class=line><span class=cl>    const db = client.db(DB_NAME);
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    // Clear existing data
+</span></span><span class=line><span class=cl>    await db.collection(&#39;students&#39;).deleteMany({});
+</span></span><span class=line><span class=cl>    await db.collection(&#39;teachers&#39;).deleteMany({});
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    // Generate students
+</span></span><span class=line><span class=cl>    const students = [];
+</span></span><span class=line><span class=cl>    GRADES.forEach(grade =&gt; {
+</span></span><span class=line><span class=cl>      CLASSES.forEach(cls =&gt; {
+</span></span><span class=line><span class=cl>        const className = `${grade}-${cls}`;
+</span></span><span class=line><span class=cl>        for (let i = 0; i &lt; 18; i++) {
+</span></span><span class=line><span class=cl>          students.push({
+</span></span><span class=line><span class=cl>            _id: new ObjectId(),
+</span></span><span class=line><span class=cl>            name: faker.name.findName(),
+</span></span><span class=line><span class=cl>            grade,
+</span></span><span class=line><span class=cl>            class: className,
+</span></span><span class=line><span class=cl>            scores: generateScores()
+</span></span><span class=line><span class=cl>          });
+</span></span><span class=line><span class=cl>        }
+</span></span><span class=line><span class=cl>      });
+</span></span><span class=line><span class=cl>    });
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    // Generate teachers
+</span></span><span class=line><span class=cl>    const teachers = [];
+</span></span><span class=line><span class=cl>    GRADES.forEach(grade =&gt; {
+</span></span><span class=line><span class=cl>      CLASSES.forEach(cls =&gt; {
+</span></span><span class=line><span class=cl>        const className = `${grade}-${cls}`;
+</span></span><span class=line><span class=cl>        teachers.push({
+</span></span><span class=line><span class=cl>          _id: new ObjectId(),
+</span></span><span class=line><span class=cl>          name: faker.name.findName(),
+</span></span><span class=line><span class=cl>          grade,
+</span></span><span class=line><span class=cl>          class: className
+</span></span><span class=line><span class=cl>        });
+</span></span><span class=line><span class=cl>      });
+</span></span><span class=line><span class=cl>    });
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    // Insert seed data
+</span></span><span class=line><span class=cl>    const studentResult = await db.collection(&#39;students&#39;).insertMany(students);
+</span></span><span class=line><span class=cl>    const teacherResult = await db.collection(&#39;teachers&#39;).insertMany(teachers);
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    console.log(`Inserted ${studentResult.insertedCount} students`);
+</span></span><span class=line><span class=cl>    console.log(`Inserted ${teacherResult.insertedCount} teachers`);
+</span></span><span class=line><span class=cl>    console.log(&#39;Seeding completed successfully.&#39;);
+</span></span><span class=line><span class=cl>  } catch (err) {
+</span></span><span class=line><span class=cl>    console.error(&#39;Error during seeding:&#39;, err);
+</span></span><span class=line><span class=cl>  } finally {
+</span></span><span class=line><span class=cl>    await client.close();
+</span></span><span class=line><span class=cl>  }
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>seed();
+</span></span></code></pre></div><p>Context7 MCP를 통해 mongodb 드라이버의 사용법을 참고하고, Sequential Thinking MCP를 어떻게 작업할지 구상해보라고 했습니다. 그러자 에이전트가 MCP를 호출하기 시작합니다.</p><p align=center><img src=./01.png></p><p>mongodb와 node.js driver 연결방법, 그리고 aggregation pipeline 사용법을 참고하고 있네요!</p><p>그리고 최종적으로 다음과 같이 정리해줍니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-markdown data-lang=markdown><span class=line><span class=cl>I&#39;ve created a complete Node.js project for studying MongoDB aggregation pipelines. Here&#39;s what I&#39;ve set up:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>### Project Structure
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl>mongodb-aggregation-study/
+</span></span><span class=line><span class=cl>├── package.json # Dependencies and npm scripts
+</span></span><span class=line><span class=cl>├── .gitignore # Git ignore file
+</span></span><span class=line><span class=cl>├── README.md # Project documentation
+</span></span><span class=line><span class=cl>└── src/
+</span></span><span class=line><span class=cl>├── config/
+</span></span><span class=line><span class=cl>│ └── db.js # MongoDB connection configuration
+</span></span><span class=line><span class=cl>├── examples/
+</span></span><span class=line><span class=cl>│ ├── basic.js # Basic aggregation examples
+</span></span><span class=line><span class=cl>│ └── advanced.js # Advanced aggregation examples
+</span></span><span class=line><span class=cl>├── index.js # Main application entry point
+</span></span><span class=line><span class=cl>└── scripts/
+</span></span><span class=line><span class=cl>└── seed.js # Database seeding script
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>### Key Features
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl><span class=k>1.</span> <span class=gs>**Database Configuration**</span>: A reusable MongoDB connection module in <span class=sb>`db.js`</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>2.</span> <span class=gs>**Seed Script**</span>: Updated version of your script using <span class=sb>`@faker-js/faker`</span> to populate the database with students and teachers data
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>3.</span> <span class=gs>**Aggregation Examples**</span>:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=k>-</span> **Basic**: Simple examples using $match, $group, $project, and $lookup
+</span></span><span class=line><span class=cl>   <span class=k>-</span> **Advanced**: Complex examples with $expr, $bucket, $reduce, and $facet
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>4.</span> <span class=gs>**NPM Scripts**</span>:
+</span></span><span class=line><span class=cl>   <span class=k>-</span> <span class=sb>`npm run seed`</span> - Populate the database
+</span></span><span class=line><span class=cl>   <span class=k>-</span> <span class=sb>`npm run example:basic`</span> - Run basic aggregation examples
+</span></span><span class=line><span class=cl>   <span class=k>-</span> <span class=sb>`npm run example:advanced`</span> - Run advanced aggregation examples
+</span></span><span class=line><span class=cl>   <span class=k>-</span> <span class=sb>`npm start`</span> - Run the main application
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>### Getting Started
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl>To use this project:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>1.</span> Ensure MongoDB is running locally (or update the connection URI in your environment)
+</span></span><span class=line><span class=cl><span class=k>2.</span> Install dependencies with <span class=sb>`npm install`</span>
+</span></span><span class=line><span class=cl><span class=k>3.</span> Run <span class=sb>`npm run seed`</span> to populate the database
+</span></span><span class=line><span class=cl><span class=k>4.</span> Try the examples with <span class=sb>`npm run example:basic`</span> or <span class=sb>`npm run example:advanced`</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>The project provides a practical environment for learning and experimenting with MongoDB&#39;s powerful aggregation pipeline features.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>mongodb-aggregation-study/
+</span></span><span class=line><span class=cl>├── package.json # Dependencies and npm scripts
+</span></span><span class=line><span class=cl>├── .gitignore # Git ignore file
+</span></span><span class=line><span class=cl>├── README.md # Project documentation
+</span></span><span class=line><span class=cl>└── src/
+</span></span><span class=line><span class=cl>├── config/
+</span></span><span class=line><span class=cl>│ └── db.js # MongoDB connection configuration
+</span></span><span class=line><span class=cl>├── examples/
+</span></span><span class=line><span class=cl>│ ├── basic.js # Basic aggregation examples
+</span></span><span class=line><span class=cl>│ └── advanced.js # Advanced aggregation examples
+</span></span><span class=line><span class=cl>├── index.js # Main application entry point
+</span></span><span class=line><span class=cl>└── scripts/
+</span></span><span class=line><span class=cl>└── seed.js # Database seeding script
+</span></span></code></pre></div><p>딱히 제가 요청하지 않았던 프로젝트 구조와 기초 및 고급 예제, 그리고 커맨드 까지 생성해서 알려줍니다!</p><p>이번엔 mongodb를 도커로 실행하는 방법을 요청해보겠습니다. 이번에도 context7 MCP를 통해 사용법을 참고하라고 알려줍니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-plaintext data-lang=plaintext><span class=line><span class=cl>very well! i need to run mongodb using docker on local. can you add instruction in @README.md for this?
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>use context7 if you need to reference how to do it
+</span></span></code></pre></div><p>그러자 이렇게 답변해줍니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-markdown data-lang=markdown><span class=line><span class=cl>Here are clear instructions you can add to your <span class=sb>`README.md`</span> for running MongoDB locally using Docker. This is the most common and recommended way for local development, and it will work cross-platform.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>---
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>## Running MongoDB Locally with Docker
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl>If you don&#39;t have MongoDB installed on your machine, you can easily run it using Docker:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>docker run --name mongodb-aggregation-study -d -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=mongo -e MONGO_INITDB_ROOT_PASSWORD=mongo mongo:latest
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>-</span> This command will:
+</span></span><span class=line><span class=cl>  <span class=k>-</span> Pull the latest MongoDB image if you don&#39;t have it.
+</span></span><span class=line><span class=cl>  <span class=k>-</span> Start a MongoDB server in a container named <span class=sb>`mongodb-aggregation-study`</span>.
+</span></span><span class=line><span class=cl>  <span class=k>-</span> Expose MongoDB on the default port <span class=sb>`27017`</span>.
+</span></span><span class=line><span class=cl>  <span class=k>-</span> Set the root username and password to <span class=sb>`mongo`</span> (you can change these if you want).
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>### Connecting from your app
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl><span class=k>-</span> By default, your <span class=sb>`.env`</span> should use:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  MONGO_URI=mongodb://localhost:27017
+</span></span><span class=line><span class=cl>  DB_NAME=school
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>-</span> If you want to use authentication, update your <span class=sb>`.env`</span>:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  MONGO_URI=mongodb://mongo:mongo<span class=ni>@localhost:27017</span>
+</span></span><span class=line><span class=cl>  DB_NAME=school
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  And make sure your MongoDB connection code supports authentication.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>### Stopping and Removing the Container
+</span></span></span><span class=line><span class=cl><span class=gu></span>
+</span></span><span class=line><span class=cl>To stop MongoDB:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>docker stop mongodb-aggregation-study
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>To remove the container:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>docker rm mongodb-aggregation-study
+</span></span></code></pre></div><p>그리고 데이터 구조에 변경이 필요해서, 구조를 변경함과 동시에 예제로 같이 수정해달라고 요청했습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-plaintext data-lang=plaintext><span class=line><span class=cl>currently @generateScores() generate randomly 3-5 scores for math, english, coding. but let&#39;s update this to:
+</span></span><span class=line><span class=cl>{
+</span></span><span class=line><span class=cl>  mid: { math, english, coding },
+</span></span><span class=line><span class=cl>  final: { math, english, coding }
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>and update example aggregations if needed.
+</span></span></code></pre></div><p>그러면 예제까지 싹 다 고쳐줍니다! 물론 중간 중간에 .env의 호출이 빠져서 환경 변수를 못읽어오는 바람에 mongodb에 접속이 안된다던지 하는 사소한 문제가 있긴 했지만요.</p><h2 id=ai-시대는-일하는-방법이-다르구나>AI 시대는 일하는 방법이 다르구나!<a href=#ai-시대는-일하는-방법이-다르구나 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>AI를 개발에 활용한지 2년이 다 되어가는데, 너무 많이 부족합니다. 그만큼 AI의 발전이 빠르다는 말이겠죠. 최근에는 그냥 자연어 기반으로 에이전트를 백그라운드에서 굴리는 OpenAI Codex나 Claude Code 등이 새로운 개발 트렌드로 떠오르는 거 같습니다. 이렇게 되면 에이전트를 여러 개 굴리면서 그냥 말로만 코딩하는 시대가 될 거 같기도 한데요&mldr; 아직 돈이 없어서 이런 툴들을 써보진 못했습니다. 조만간에 기회가 있으면 시도해봐야죠. 적어도 뒤쳐지지는 말아야죠!</p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/typescript-%ED%83%80%EC%9E%85-%EC%A0%84%EC%9A%A9-import-export%EC%99%80-import-%EC%83%9D%EB%9E%B5-elision/><span class=button__icon>←</span>
+<span class=button__text>Typescript: 타입 전용 import & export와 import 생략(elision)</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/patch-package%EB%A1%9C-%ED%8C%A8%ED%82%A4%EC%A7%80-%EC%BB%A4%EC%8A%A4%ED%84%B0%EB%A7%88%EC%9D%B4%EC%A6%88%ED%95%98%EA%B8%B0/><span class=button__text>patch-package로 패키지 커스터마이즈하기</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>

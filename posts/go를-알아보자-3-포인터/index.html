@@ -1,0 +1,186 @@
+<!doctype html><html lang=ko><head><title>go를 알아보자(3) - 포인터 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="아주 오래전, 중학생이었던 제가 혼자서 C를 공부했던 시절이 있었습니다. 터보C 2.0 컴파일러와 안녕하세요 터보C 라는 책을 하나 들고 열심히 공부를 했습니다. 그때 당시엔 함수라는 개념을 도저히 이해할 수 없었습니다. 그리고 시간이 1-2년 지나서 그 책을 다시 …"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/go%EB%A5%BC-%EC%95%8C%EC%95%84%EB%B3%B4%EC%9E%90-3-%ED%8F%AC%EC%9D%B8%ED%84%B0/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="go를 알아보자(3) - 포인터"><meta property="og:description" content="아주 오래전, 중학생이었던 제가 혼자서 C를 공부했던 시절이 있었습니다. 터보C 2.0 컴파일러와 안녕하세요 터보C 라는 책을 하나 들고 열심히 공부를 했습니다. 그때 당시엔 함수라는 개념을 도저히 이해할 수 없었습니다. 그리고 시간이 1-2년 지나서 그 책을 다시 …"><meta property="og:url" content="https://netscout.github.io/posts/go%EB%A5%BC-%EC%95%8C%EC%95%84%EB%B3%B4%EC%9E%90-3-%ED%8F%AC%EC%9D%B8%ED%84%B0/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2026-05-25 08:46:28 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/go%EB%A5%BC-%EC%95%8C%EC%95%84%EB%B3%B4%EC%9E%90-3-%ED%8F%AC%EC%9D%B8%ED%84%B0/>go를 알아보자(3) - 포인터</a></h1><div class=post-meta><time class=post-date>2026-05-25</time>
+<span class=post-reading-time>8 분 (1619 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/Go/>Go</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#포인터>포인터&mldr;</a><ul><li><a href=#nil-포인터---아무것도-가리키지-않는-포인터>nil 포인터 - 아무것도 가리키지 않는 포인터</a></li></ul></li><li><a href=#스택stack-vs-힙heap>스택(stack) vs 힙(heap)</a></li><li><a href=#값-타입value-type-vs-참조-타입reference-type>값 타입(value type) vs 참조 타입(reference type)</a></li><li><a href=#구조체도-헷갈리게>구조체도 헷갈리게&mldr;</a><ul><li><a href=#구조체의-메서드-정의>구조체의 메서드 정의</a></li><li><a href=#new-와-counter---둘-다-구조체-포인터를-만들어요><code>new()</code> 와 <code>&amp;Counter{}</code> - 둘 다 구조체 포인터를 만들어요</a></li></ul></li><li><a href=#참고자료>참고자료</a></li></ul></nav></div><div class=post-content><div><p>아주 오래전, 중학생이었던 제가 혼자서 C를 공부했던 시절이 있었습니다. 터보C 2.0 컴파일러와 <code>안녕하세요 터보C</code> 라는 책을 하나 들고 열심히 공부를 했습니다. 그때 당시엔 함수라는 개념을 도저히 이해할 수 없었습니다. 그리고 시간이 1-2년 지나서 그 책을 다시 집어 들고 공부를 했지만 이번엔 포인터, 구조체의 개념을 도저히 이해할 수 없었던 기억이 납니다. 그리고 포인터는 대학교 2학년이 되어서야 제대로(??? 그러니까 한 2차원 배열을 다룰 정도?) 이해할 수 있었습니다.</p><p>그리고는 그 당시 베타 버전이 출시되던 닷넷(.NET)으로 넘어가면서 포인터와의 악연은 막을 내렸죠. 그런데 말입니다&mldr;</p><p>최근에 작업을 Go로 하려다보니&mldr; 어쩔 수 없이 다시 포인터를 마주하게 됩니다. 20년도 더 지나서 포인터를 다시 보니 너무 헷갈려서 머리가 빙빙 돌더군요. 그래서 저를 위해서 포인터를 다시 한 번 정리해보자, 하는 하찮은 이유로 그냥 정리해봅니다. 미래의 저를 위해서!</p><h2 id=포인터>포인터&mldr;<a href=#포인터 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>포인터는 말 그대로 그냥 어느 한 지점을 가리키는 걸 말합니다. 포인터는 두 개의 특수기호 <code>*</code>, <code>&</code> 가 연관되어 있는데요, 우선 <code>*</code>는 어디에서 사용되느냐에 따라 의미가 다릅니다.</p><ul><li>타입의 앞에 붙은 경우(ex: *bool) -> 메모리에서 해당 타입의 값이 위치하는 곳을 가리키는 포인터</li><li>표현식에서 사용된 경우(ex: *isActive) -> 포인터가 가리키는 지점에 위치한 값, 참조 해제(포인터->실제 값)</li></ul><p>그리고 <code>&</code>는 메모리의 주소를 가져오는 연산자로, 변수나 구조체등에 붙이게 되면 값이 위치한 메모리의 주소를 리턴합니다.</p><p>다음 예시를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>var</span> <span class=nx>b</span> <span class=kt>bool</span> <span class=p>=</span> <span class=kc>true</span> <span class=c1>// bool 타입의 변수 b에 true를 설정 -&gt; 메모리의 어딘가 변수 b가 할당됨</span>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>p</span> <span class=o>*</span><span class=kt>bool</span> <span class=p>=</span> <span class=o>&amp;</span><span class=nx>b</span> <span class=c1>// 변수 b의 메모리 주소를 bool타입의 포인터 p에 할당</span>
+</span></span><span class=line><span class=cl><span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>p</span><span class=p>)</span> <span class=c1>// 포인터 p가 가리키는 -&gt; 변수 b의 메모리 주소가 출력됨(ex: 0xc0000140a0)</span>
+</span></span><span class=line><span class=cl><span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=o>*</span><span class=nx>p</span><span class=p>)</span> <span class=c1>// 포인터 p가 가리키는 -&gt; 참조 해제 -&gt; 변수 b의 값이 출력됨(true)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=o>*</span><span class=nx>p</span> <span class=p>=</span> <span class=kc>false</span> <span class=c1>// 포인터 p가 가리키는 -&gt; 변수 b의 값을 false로 변경</span>
+</span></span><span class=line><span class=cl><span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>b</span><span class=p>)</span> <span class=c1>// 변수 b의 값이 출력됨(false)</span>
+</span></span></code></pre></div><p>그림으로 보면 이렇습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>메모리:
+</span></span><span class=line><span class=cl>                      ┌──────────────┐
+</span></span><span class=line><span class=cl>변수 b   0xc000014090  │    true      │ ◄──┬── *p (참조 해제 결과: true)
+</span></span><span class=line><span class=cl>                      └──────────────┘    │
+</span></span><span class=line><span class=cl>                                          │ p가 가진 주소를
+</span></span><span class=line><span class=cl>                                          │ 따라가서 도달
+</span></span><span class=line><span class=cl>                      ┌──────────────┐    │
+</span></span><span class=line><span class=cl>포인터 p 0xc0000140a0   │0xc000014090  │ ───┘
+</span></span><span class=line><span class=cl>                      └──────────────┘     (&amp;b로 얻은 주소를 값으로 가짐)
+</span></span></code></pre></div><ul><li><code>&amp;b</code> 는 변수 b가 위치한 메모리 주소(<code>0xc000014090</code>)를 얻어옵니다.</li><li>포인터 p는 그 주소를 자신의 값으로 가집니다.</li><li><code>*p</code> 는 p가 가리키는 곳으로 따라가서 실제 값(<code>true</code>)을 가져옵니다.</li></ul><p>간단해 보이지만, 두고두고 사람을 헷갈리게 만드는 요소입니다. 제가 그렇습니다.</p><h3 id=nil-포인터---아무것도-가리키지-않는-포인터>nil 포인터 - 아무것도 가리키지 않는 포인터<a href=#nil-포인터---아무것도-가리키지-않는-포인터 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>포인터에는 한 가지 특별한 값이 있는데요, 바로 <code>nil</code> 입니다. 다른 언어의 <code>null</code> 과 비슷한 개념이라고 생각하시면 됩니다. 포인터를 선언만 하고 아무 주소도 할당하지 않으면 zero value인 <code>nil</code> 이 되죠.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>var</span> <span class=nx>p</span> <span class=o>*</span><span class=kt>bool</span>       <span class=c1>// 선언만 함 -&gt; p는 nil</span>
+</span></span><span class=line><span class=cl><span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>p</span><span class=p>)</span>    <span class=c1>// &lt;nil&gt;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=nx>p</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;p는 아무것도 가리키지 않습니다&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=o>*</span><span class=nx>p</span><span class=p>)</span>   <span class=c1>// panic!</span>
+</span></span><span class=line><span class=cl>                  <span class=c1>// panic: runtime error: invalid memory address or nil pointer dereference</span>
+</span></span></code></pre></div><p><code>nil</code> 포인터를 역참조(<code>*p</code>) 하려고 하면 위 코드의 마지막 줄처럼 런타임 패닉이 터집니다. 그래서 포인터를 다룰 때는 사용하기 전에 <code>nil</code> 체크를 하는 습관이 중요합니다.</p><p>도대체 이런 포인터를 왜 사용하게 된 걸까요? 메모리를 빠르고 효율적으로 사용하기 위해서 그렇습니다. 좀 더 알아볼까요?</p><h2 id=스택stack-vs-힙heap>스택(stack) vs 힙(heap)<a href=#스택stack-vs-힙heap class=hanchor arialabel=Anchor>&#8983;</a></h2><p>프로그램이 실행될 때는 스택, 힙 이렇게 2가지 유형의 메모리를 사용합니다.</p><ul><li><p>스택: 여러분이 알고계시는 바로 그 스택입니다. 가장 나중에 들어온 게 가장 먼저 나가는(LIFO) 방식으로 이 타입의 메모리는 관리가 매우 쉽습니다. 메모리에 할당할 때는 스택의 꼭대기를 나타내는 top 포인터를 증가/감소 시키기만 하면 됩니다. 함수가 호출될 때 마다 해당 함수에서 사용하는 모든 지역 변수들을 하나의 프레임으로 구성하여 스택의 꼭대기에 push하고, 함수의 실행이 종료되면 프레임 전체를 pop합니다.</p></li><li><p>힙: 함수의 실행 주기와 관계없이 프로그램 전체에서 공유되어야 하거나, 스택에 할당되기에 너무 큰 메모리의 경우 힙에 할당됩니다. 스택에서는 함수 실행 주기에 따라 메모리에서 자동적으로 pop을 하는 방식으로 관리가 되지만, 힙은 함수 실행과 관계없이 그대로 남아있습니다. 그래서 주기적으로 가비지 컬렉터(GC)가 더 이상 사용되지 않는 항목을 찾아서 제거하고 메모리를 압축하는 등의 작업을 수행합니다.</p></li></ul><p>이 둘의 차이를 그림으로 보면 이렇습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>       STACK (LIFO)                   HEAP (자유 할당)
+</span></span><span class=line><span class=cl>                                   ┌──────────────────────┐
+</span></span><span class=line><span class=cl>   ┌─────────────────┐ ◄─ top      │  ┌────┐    ┌──────┐  │
+</span></span><span class=line><span class=cl>   │  bar()  frame   │  (가장       │  │obj1│    │ obj2 │  │
+</span></span><span class=line><span class=cl>   ├─────────────────┤   나중에      │  └────┘    └──────┘  │
+</span></span><span class=line><span class=cl>   │  foo()  frame   │   push됨)    │       ┌────┐         │
+</span></span><span class=line><span class=cl>   ├─────────────────┤             │       │obj3│ ← GC가   │
+</span></span><span class=line><span class=cl>   │  main() frame   │             │       └────┘   정리   │
+</span></span><span class=line><span class=cl>   └─────────────────┘             └──────────────────────┘
+</span></span><span class=line><span class=cl>   호출 순서: main() → foo() → bar()
+</span></span><span class=line><span class=cl>   push/pop 으로 관리
+</span></span></code></pre></div><p>아주 단순하게 말하면 값 타입(value type)은 스택에, 참조 타입(reference type)은 힙 메모리에 할당된다고 말할 수 있는데요.(물론 Go 컴파일러는 escape analysis를 수행해서 함수의 수명보다 길게 살아남을 요소들은 힙에 할당하기도 합니다.) 그러면 값 타입과 참조 타입에 대해서 알아보죠.</p><h2 id=값-타입value-type-vs-참조-타입reference-type>값 타입(value type) vs 참조 타입(reference type)<a href=#값-타입value-type-vs-참조-타입reference-type class=hanchor arialabel=Anchor>&#8983;</a></h2><p>일단 값 타입(value type)과 참조 타입(reference type)부터 정리하고 가겠습니다. 너무 기본이지만 어느새 까먹어 버리는 개념이기 때문이죠.</p><ul><li><p>값 타입(value type): int, bool 같은 기본(또는 원시 primitive)타입과 배열, 구조체 등의 복합 타입은 일반적으로 스택에 할당됩니다.</p></li><li><p>참조 타입(reference type): 슬라이스, 맵, 채널, 인터페이스, 포인터 처럼 힙 메모리 어딘가에 위치하는 실제 데이터를 참조하는 타입입니다.</p></li></ul><p>그런데 사실 참조 타입은 값 타입이기도 합니다. 위에서 설명드린 것 처럼 <code>값 타입이지만, 메모리 어딘가에 위치하는 데이터를 가리키는 포인터를 값으로 가지는</code> 타입을 편의상 참조 타입으로 부르는 거죠.</p><p>Go에서는 기본적으로 모든 걸 값으로 전달(pass by value, 값을 복제해서 전달함) 하는데요, 여기에서 참조 타입은 약간 헷갈릴 수도 있게 동작합니다.</p><p>다음 코드를 볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>array1</span> <span class=o>:=</span> <span class=p>[</span><span class=mi>3</span><span class=p>]</span><span class=kt>int</span><span class=p>{</span><span class=mi>10</span><span class=p>,</span> <span class=mi>20</span><span class=p>,</span> <span class=mi>30</span><span class=p>}</span> <span class=c1>// 값 타입 배열 선언</span>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>array1</span><span class=p>)</span>          <span class=c1>// [10 20 30]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>array2</span> <span class=o>:=</span> <span class=nx>array1</span> <span class=c1>// array2 에 array1 할당(pass by value, 배열이 복사됨)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>array2</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=p>=</span> <span class=mi>100</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>array1</span><span class=p>)</span> <span class=c1>// [10 20 30] array1과 array2는 별개의 복사본이므로 변화 없음</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>slice1</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>([]</span><span class=kt>int</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>5</span><span class=p>)</span> <span class=c1>// len:3, cap: 5</span>
+</span></span><span class=line><span class=cl>	<span class=nx>slice1</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=p>=</span> <span class=mi>10</span>
+</span></span><span class=line><span class=cl>	<span class=nx>slice1</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span> <span class=p>=</span> <span class=mi>20</span>
+</span></span><span class=line><span class=cl>	<span class=nx>slice1</span><span class=p>[</span><span class=mi>2</span><span class=p>]</span> <span class=p>=</span> <span class=mi>30</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>slice1</span><span class=p>)</span> <span class=c1>// [10 20 30]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>slice2</span> <span class=o>:=</span> <span class=nx>slice1</span> <span class=c1>// slice1를 slice2에 할당(pass by value)</span>
+</span></span><span class=line><span class=cl>	<span class=nx>slice2</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=p>=</span> <span class=mi>100</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>slice1</span><span class=p>)</span> <span class=c1>// [100 20 30] slice1과 slice2는 동일한 배열 데이터를 참조함</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>값 타입인 배열의 경우, <code>array2 := array1</code> 에서 배열의 모든 요소들이 새로운 배열로 복제되어 array2에 할당됩니다. 그래서 array2의 데이터를 변경해도 array1은 전혀 영향을 받지 않죠.</p><p>참조 타입인 슬라이스의 경우 <code>slice2 := slice1</code> 에서 값 타입인 슬라이스의 헤더(실제 배열 값을 가리키는 포인터, 슬라이스 요소 개수 len, 배열 길이 cap)만 복제되어 slice2로 전달됩니다. 두 슬라이스 모두 동일한 포인터를 가지고 있기 때문에 slice2의 요소를 변경하면 slice1도 변경된 값을 참조하게 됩니다.</p><p>이 차이를 그림으로 보면 한눈에 들어옵니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>▶ 배열 (값 타입) - array2 := array1 후, array2[0] = 100 까지 실행한 상태
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   array1                    array2
+</span></span><span class=line><span class=cl>  ┌──┬──┬──┐    복사         ┌───┬──┬──┐
+</span></span><span class=line><span class=cl>  │10│20│30│  ────────►     │100│20│30│   ← 완전히 별개의 메모리
+</span></span><span class=line><span class=cl>  └──┴──┴──┘                └───┴──┴──┘     (array2만 100으로 변경됨)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>▶ 슬라이스 (참조 타입) - slice2 := slice1 후, slice2[0] = 100 까지 실행한 상태
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   slice1 헤더               slice2 헤더
+</span></span><span class=line><span class=cl>  ┌──────┬───┬───┐          ┌──────┬───┬───┐
+</span></span><span class=line><span class=cl>  │ ptr  │ 3 │ 5 │          │ ptr  │ 3 │ 5 │   ← 헤더만 복사
+</span></span><span class=line><span class=cl>  └──┬───┴───┴───┘          └──┬───┴───┴───┘
+</span></span><span class=line><span class=cl>     │                         │
+</span></span><span class=line><span class=cl>     └────────────┬────────────┘
+</span></span><span class=line><span class=cl>                  ▼
+</span></span><span class=line><span class=cl>           underlying array (힙)
+</span></span><span class=line><span class=cl>         ┌───┬──┬──┬─┬─┐
+</span></span><span class=line><span class=cl>         │100│20│30│ │ │   ← 동일한 배열을 공유
+</span></span><span class=line><span class=cl>         └───┴──┴──┴─┴─┘     (slice2의 변경이 slice1에도 보임)
+</span></span><span class=line><span class=cl>          len=3     cap=5
+</span></span></code></pre></div><p>배열은 통째로 복제되어 두 개의 독립된 메모리가 되지만, 슬라이스는 헤더만 복제되고 실제 데이터(underlying array)는 하나를 공유합니다. 그래서 <code>slice2[0] = 100</code> 으로 변경한 값이 <code>slice1</code> 에서도 보이는 거죠.</p><h2 id=구조체도-헷갈리게>구조체도 헷갈리게&mldr;<a href=#구조체도-헷갈리게 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Go는 OOP를 지원하긴 하지만, 클래스를 사용하지 않습니다. 이 부분이 저도 처음엔 좀 의아하긴 했는데요, Go는 값 타입인 구조체를 활용해서 이 문제를 해결합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Counter</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>count</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>counter1</span> <span class=o>:=</span> <span class=nx>Counter</span><span class=p>{</span><span class=nx>count</span><span class=p>:</span> <span class=mi>1</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>counter1</span><span class=p>)</span> <span class=c1>// {1}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>counter2</span> <span class=o>:=</span> <span class=nx>counter1</span>
+</span></span><span class=line><span class=cl>	<span class=nx>counter2</span><span class=p>.</span><span class=nx>count</span> <span class=p>=</span> <span class=mi>10</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>counter1</span><span class=p>)</span> <span class=c1>// {1}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>구조체는 값 타입이기 때문에 counter1을 counter2에 대입할 때 count 값이 새로운 복제본으로 복사되어 전달됩니다.</p><h3 id=구조체의-메서드-정의>구조체의 메서드 정의<a href=#구조체의-메서드-정의 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>클래스는 지원하는 언어는 클래스의 내부에 메서드(멤버 메서드)를 정의합니다. 하지만 Go는 클래스 대신 구조체를 사용하죠. 그래서 구조체 외부에 메서드를 정의하고 그 메서드의 수신자가 누구인지를 명시하도록 되어 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Counter</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>count</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 값 수신자(value receiver) - 복사본에 대해 수행</span>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=nx>Counter</span><span class=p>)</span> <span class=nf>IncrementOnCopy</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>c</span><span class=p>.</span><span class=nx>count</span><span class=o>++</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 포인터 수신자(pointer receiver) - 원본에 대해 수행</span>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=o>*</span><span class=nx>Counter</span><span class=p>)</span> <span class=nf>Increment</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>c</span><span class=p>.</span><span class=nx>count</span><span class=o>++</span> <span class=c1>// 원래는 (*c).count++ 이어야 하지만, Go는 자동으로 참조를 해제해준다</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>counter</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>Counter</span><span class=p>{</span><span class=nx>count</span><span class=p>:</span> <span class=mi>0</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 위 라인은 아래 두 줄과 동일</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// tmp := Counter{count: 0}</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// counter := &amp;tmp</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;복사본에 대해 카운트 증가&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>5</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>counter</span><span class=p>.</span><span class=nf>IncrementOnCopy</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;%d번 증가: %d \n&#34;</span><span class=p>,</span> <span class=nx>i</span><span class=o>+</span><span class=mi>1</span><span class=p>,</span> <span class=nx>counter</span><span class=p>.</span><span class=nx>count</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;원본에 대해 카운트 증가&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>i</span> <span class=o>:=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=p>&lt;</span> <span class=mi>5</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>counter</span><span class=p>.</span><span class=nf>Increment</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>fmt</span><span class=p>.</span><span class=nf>Printf</span><span class=p>(</span><span class=s>&#34;%d번 증가: %d \n&#34;</span><span class=p>,</span> <span class=nx>i</span><span class=o>+</span><span class=mi>1</span><span class=p>,</span> <span class=nx>counter</span><span class=p>.</span><span class=nx>count</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>위 코드의 실행결과는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>❯ go run .
+</span></span><span class=line><span class=cl>복사본에 대해 카운트 증가
+</span></span><span class=line><span class=cl>1번 증가: <span class=m>0</span> 
+</span></span><span class=line><span class=cl>2번 증가: <span class=m>0</span> 
+</span></span><span class=line><span class=cl>3번 증가: <span class=m>0</span> 
+</span></span><span class=line><span class=cl>4번 증가: <span class=m>0</span> 
+</span></span><span class=line><span class=cl>5번 증가: <span class=m>0</span> 
+</span></span><span class=line><span class=cl>원본에 대해 카운트 증가
+</span></span><span class=line><span class=cl>1번 증가: <span class=m>1</span> 
+</span></span><span class=line><span class=cl>2번 증가: <span class=m>2</span> 
+</span></span><span class=line><span class=cl>3번 증가: <span class=m>3</span> 
+</span></span><span class=line><span class=cl>4번 증가: <span class=m>4</span> 
+</span></span><span class=line><span class=cl>5번 증가: <span class=m>5</span>
+</span></span></code></pre></div><p>Go에서는 데이터를 전달할 때 항상 값으로 전달(pass by value)을 사용합니다. 따라서 값 수신자에 전달되는 구조체 데이터 역시 복제되어 전달됩니다. 아무리 <code>IncrementOnCopy()</code> 를 호출해도 복사본에 대해 수행되기 때문에 카운트는 제자리에 멈추게 됩니다.</p><p>포인터 수신자는 구조체의 참조를 전달받아 연산을 수행하기 때문에 원본의 값을 변경하게 되고 카운트가 계속 증가하게 됩니다.</p><p>이 차이를 그림으로 정리하면 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=err>▶</span> <span class=err>값</span> <span class=err>수신자</span><span class=p>:</span> <span class=k>func</span> <span class=p>(</span><span class=n>c</span> <span class=n>Counter</span><span class=p>)</span> <span class=n>IncrementOnCopy</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=p>[</span><span class=err>호출자의</span> <span class=err>메모리</span><span class=p>]</span>                  <span class=p>[</span><span class=err>함수의</span> <span class=err>스택</span> <span class=err>프레임</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=n>counter</span>           <span class=err>값</span> <span class=err>복사</span>            <span class=n>c</span> <span class=p>(</span><span class=n>Counter의</span> <span class=err>복사본</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>     <span class=err>┌────────┐</span>      <span class=err>───────────►</span>         <span class=err>┌────────┐</span>
+</span></span><span class=line><span class=cl>     <span class=err>│</span><span class=n>count</span><span class=p>:</span> <span class=mi>0</span><span class=err>│</span>                           <span class=err>│</span><span class=n>count</span><span class=p>:</span> <span class=mi>0</span><span class=err>│</span>
+</span></span><span class=line><span class=cl>     <span class=err>└────────┘</span>                           <span class=err>└───┬────┘</span>
+</span></span><span class=line><span class=cl>         <span class=err>▲</span>                                    <span class=err>│</span> <span class=n>c</span><span class=o>.</span><span class=n>count</span><span class=o>++</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>                                    <span class=err>▼</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>                                <span class=err>┌────────┐</span>
+</span></span><span class=line><span class=cl>         <span class=err>│</span>    <span class=err>──</span> <span class=err>함수가</span> <span class=err>끝나도</span> <span class=err>──</span>            <span class=err>│</span><span class=n>count</span><span class=p>:</span> <span class=mi>1</span><span class=err>│</span>  <span class=err>←</span> <span class=err>복사본만</span> <span class=err>증가</span>
+</span></span><span class=line><span class=cl>         <span class=err>└──</span>      <span class=err>여전히</span> <span class=n>count</span><span class=p>:</span> <span class=mi>0</span>           <span class=err>└────────┘</span>
+</span></span><span class=line><span class=cl>                                          <span class=err>함수</span> <span class=err>종료</span> <span class=err>→</span> <span class=n>c</span> <span class=err>폐기</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=err>▶</span> <span class=err>포인터</span> <span class=err>수신자</span><span class=p>:</span> <span class=k>func</span> <span class=p>(</span><span class=n>c</span> <span class=o>*</span><span class=n>Counter</span><span class=p>)</span> <span class=n>Increment</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>   <span class=p>[</span><span class=err>호출자의</span> <span class=err>메모리</span><span class=p>]</span>                  <span class=p>[</span><span class=err>함수의</span> <span class=err>스택</span> <span class=err>프레임</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=n>counter</span>        <span class=err>주소</span><span class=p>(</span><span class=o>&amp;</span><span class=n>counter</span><span class=p>)</span> <span class=err>전달</span>      <span class=n>c</span> <span class=p>(</span><span class=o>*</span><span class=n>Counter</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>     <span class=err>┌────────┐</span>     <span class=err>─────────────────►</span>      <span class=err>┌────────────┐</span>
+</span></span><span class=line><span class=cl>     <span class=err>│</span><span class=n>count</span><span class=p>:</span> <span class=mi>0</span><span class=err>│</span>                             <span class=err>│</span><span class=mh>0xc000014090</span><span class=err>│</span>
+</span></span><span class=line><span class=cl>     <span class=err>│</span>   <span class=err>↓</span>    <span class=err>│</span>  <span class=err>◄──</span> <span class=p>(</span><span class=o>*</span><span class=n>c</span><span class=p>)</span><span class=o>.</span><span class=n>count</span><span class=o>++</span> <span class=err>으로</span> <span class=err>─────</span> <span class=err>│</span>  <span class=p>(</span><span class=err>원본을</span>     <span class=err>│</span>
+</span></span><span class=line><span class=cl>     <span class=err>│</span><span class=n>count</span><span class=p>:</span> <span class=mi>1</span><span class=err>│</span>       <span class=err>원본을</span> <span class=err>직접</span> <span class=err>수정</span>          <span class=err>│</span>   <span class=err>가리킴</span><span class=p>)</span>    <span class=err>│</span>
+</span></span><span class=line><span class=cl>     <span class=err>└────────┘</span>                             <span class=err>└────────────┘</span>
+</span></span><span class=line><span class=cl>       <span class=err>원본이</span> <span class=err>변경됨</span>
+</span></span></code></pre></div><p><code>IncrementOnCopy()</code> 는 호출할 때마다 매번 새로운 복사본을 만들어 그 위에서 1을 더한 뒤, 함수가 끝나면 복사본은 사라집니다. 그래서 원본인 <code>counter.count</code> 는 계속 0인 거죠. 반면 <code>Increment()</code> 는 <code>counter</code> 의 주소만 받기 때문에 함수 안에서 <code>c.count++</code> 를 하면 원본의 메모리가 직접 바뀝니다.</p><h3 id=new-와-counter---둘-다-구조체-포인터를-만들어요><code>new()</code> 와 <code>&amp;Counter{}</code> - 둘 다 구조체 포인터를 만들어요<a href=#new-와-counter---둘-다-구조체-포인터를-만들어요 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>위 예시에서 <code>counter := &amp;Counter{count: 0}</code> 으로 구조체 포인터를 만들었는데요, Go에는 내장 함수 <code>new()</code> 라는 또 다른 방법도 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>counter1</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>Counter</span><span class=p>{}</span>          <span class=c1>// 빈 구조체 포인터 (모든 필드가 zero value)</span>
+</span></span><span class=line><span class=cl><span class=nx>counter2</span> <span class=o>:=</span> <span class=nb>new</span><span class=p>(</span><span class=nx>Counter</span><span class=p>)</span>        <span class=c1>// 위와 동일한 결과</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nx>counter3</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>Counter</span><span class=p>{</span><span class=nx>count</span><span class=p>:</span> <span class=mi>10</span><span class=p>}</span> <span class=c1>// 초기값을 지정하고 싶다면 이쪽</span>
+</span></span></code></pre></div><p><code>new(T)</code> 는 타입 T의 zero value를 가지는 새 메모리를 할당하고 그 포인터를 돌려주는 내장 함수입니다. 초기화할 필드가 없다면 <code>new(Counter)</code> 가 좀 더 간결하긴 한데요, 실제로는 초기값을 함께 지정하는 경우가 대부분이라서 <code>&amp;Counter{...}</code> 쪽이 훨씬 자주 사용됩니다.</p><h2 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li>Tucker의 Go 언어 프로그래밍</li><li>Claude</li></ul></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/typescript-temporal/><span class=button__icon>←</span>
+<span class=button__text>Typescript: Temporal</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/npm-%EA%B3%B5%EA%B8%89%EB%A7%9D-%EA%B3%B5%EA%B2%A9-%EB%B0%A9%EC%96%B4-%EA%B0%80%EC%9D%B4%EB%93%9C-min-release-age-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0/><span class=button__text>npm 공급망 공격 방어 가이드: min-release-age 설정하기</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>
