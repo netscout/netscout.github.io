@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>보안 on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/%EB%B3%B4%EC%95%88/</link><description>Recent content in 보안 on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Mon, 20 Apr 2026 21:17:43 +0900</lastBuildDate><atom:link href="https://netscout.github.io/tags/%EB%B3%B4%EC%95%88/index.xml" rel="self" type="application/rss+xml"/><item><title>npm 공급망 공격 방어 가이드: min-release-age 설정하기</title><link>https://netscout.github.io/posts/npm-%EA%B3%B5%EA%B8%89%EB%A7%9D-%EA%B3%B5%EA%B2%A9-%EB%B0%A9%EC%96%B4-%EA%B0%80%EC%9D%B4%EB%93%9C-min-release-age-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0/</link><pubDate>Mon, 20 Apr 2026 21:17:43 +0900</pubDate><guid>https://netscout.github.io/posts/npm-%EA%B3%B5%EA%B8%89%EB%A7%9D-%EA%B3%B5%EA%B2%A9-%EB%B0%A9%EC%96%B4-%EA%B0%80%EC%9D%B4%EB%93%9C-min-release-age-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0/</guid><description>2026년 3월 31일, 주당 약 1억 회 다운로드되는 인기 HTTP 클라이언트 라이브러리 axios 의 메인테이너 npm 계정이 탈취되어, 악성 버전 &lt;a href="mailto:axios@1.14.1">axios@1.14.1&lt;/a>과 &lt;a href="mailto:axios@0.30.4">axios@0.30.4&lt;/a>가 npm 레지스트리에 공개되었습니다.</description><content>&lt;blockquote>
+&lt;p>이 문서는 CLAUDE를 통해 작성되었습니다.&lt;/p>&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;strong>목적&lt;/strong>: 이 가이드는 npm 생태계에 대한 &lt;strong>공급망 공격(Supply Chain Attack)&lt;/strong> 으로부터 개발자와 조직을 보호하기 위한 실무 설정 가이드입니다. macOS, Windows 모두에서 동일하게 적용할 수 있도록 작성되었습니다.&lt;/p>&lt;/blockquote>
+&lt;hr>
+&lt;h2 id="배경-왜-이-설정이-필요한가--axios-사태-2026년-3월-31일">배경: 왜 이 설정이 필요한가 — axios 사태 (2026년 3월 31일)&lt;/h2>
+&lt;p>2026년 3월 31일, 주당 약 &lt;strong>1억 회&lt;/strong> 다운로드되는 인기 HTTP 클라이언트 라이브러리 &lt;strong>axios&lt;/strong> 의 메인테이너 npm 계정이 탈취되어, 악성 버전 &lt;code>axios@1.14.1&lt;/code>과 &lt;code>axios@0.30.4&lt;/code>가 npm 레지스트리에 공개되었습니다.&lt;/p>
+&lt;p>&lt;strong>공격 요약&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>공격자는 사회공학 기법(위장된 회사, 가짜 Slack/Teams 미팅)으로 메인테이너 계정을 탈취했습니다.&lt;/li>
+&lt;li>악성 버전은 &lt;code>plain-crypto-js@4.2.1&lt;/code>이라는 별도의 악성 패키지를 의존성으로 주입했습니다.&lt;/li>
+&lt;li>해당 패키지의 &lt;code>postinstall&lt;/code> 훅은 &lt;code>npm install&lt;/code> 실행 즉시 macOS / Windows / Linux용 RAT(원격 제어 트로이목마)을 자동으로 다운로드하여 실행했습니다.&lt;/li>
+&lt;li>코드를 한 줄도 import 하지 않고, &lt;strong>단지 설치만 해도&lt;/strong> 감염되었습니다.&lt;/li>
+&lt;li>악성 버전은 공개 후 &lt;strong>약 3시간&lt;/strong> 뒤에 npm 레지스트리에서 제거되었습니다.&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>핵심 교훈&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>만약 새 패키지 버전의 설치를 &lt;strong>단 하루만&lt;/strong> 지연시켰다면, 대부분의 개발자는 이 공격에서 안전했을 것입니다.&lt;/p>&lt;/blockquote>
+&lt;p>대부분의 악성 npm 패키지는 보안 연구자들에 의해 수 시간 내에 탐지·제거됩니다. 따라서 갓 출시된 버전의 설치를 일정 기간 지연시키는 &amp;ldquo;쿨다운(cooldown)&amp;rdquo; 전략이 가장 단순하고 강력한 공급망 공격 방어 수단 중 하나입니다.&lt;/p>
+&lt;p>npm CLI는 &lt;strong>11.10.0 버전부터&lt;/strong> 이 기능을 &lt;code>min-release-age&lt;/code> 설정으로 제공합니다.&lt;/p>
+&lt;hr>
+&lt;h2 id="전체-절차-개요">전체 절차 개요&lt;/h2>
+&lt;ol>
+&lt;li>Node.js 및 npm 버전 확인&lt;/li>
+&lt;li>Node.js를 24.x로 업그레이드 (필요 시)&lt;/li>
+&lt;li>npm을 11.10.0 이상으로 업그레이드&lt;/li>
+&lt;li>&lt;code>min-release-age&lt;/code> 설정&lt;/li>
+&lt;li>설정이 실제로 적용되는지 검증&lt;/li>
+&lt;li>추가 보안 설정 (선택)&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;h2 id="1단계-현재-버전-확인">1단계: 현재 버전 확인&lt;/h2>
+&lt;p>터미널(macOS: Terminal / Windows: PowerShell 또는 CMD)을 열고 다음을 실행합니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">node -v
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">npm -v
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>요구 버전&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Node.js: &lt;strong>v24.x 이상&lt;/strong> (npm 11은 공식적으로 Node 24와 함께 제공됨)&lt;/li>
+&lt;li>npm: &lt;strong>11.10.0 이상&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>두 버전 모두 충족한다면 &lt;a href="https://netscout.github.io/posts/npm-%EA%B3%B5%EA%B8%89%EB%A7%9D-%EA%B3%B5%EA%B2%A9-%EB%B0%A9%EC%96%B4-%EA%B0%80%EC%9D%B4%EB%93%9C-min-release-age-%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0/#3%eb%8b%a8%ea%b3%84-min-release-age-%ec%84%a4%ec%a0%95">3단계&lt;/a>로 건너뛸 수 있습니다.&lt;/p>
+&lt;hr>
+&lt;h2 id="2단계-nodejs-설치--업그레이드">2단계: Node.js 설치 / 업그레이드&lt;/h2>
+&lt;p>Node 버전을 유연하게 관리하기 위해 &lt;strong>nvm(Node Version Manager)&lt;/strong> 사용을 권장합니다.&lt;/p>
+&lt;h3 id="macos--linux--nvm">macOS / Linux — nvm&lt;/h3>
+&lt;p>&lt;strong>nvm 설치&lt;/strong> (이미 설치되어 있다면 생략):&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh &lt;span class="p">|&lt;/span> bash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>설치 후 &lt;strong>새 터미널을 엽니다&lt;/strong>. 그 다음:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 최신 Node 24.x 설치 및 기본값으로 지정&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nvm install &lt;span class="m">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nvm &lt;span class="nb">alias&lt;/span> default &lt;span class="m">24&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>이미 Node 24.x가 설치된 경우, 최신 패치 버전으로 업데이트&lt;/strong>:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">nvm install &lt;span class="m">24&lt;/span> --reinstall-packages-from&lt;span class="o">=&lt;/span>current
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">nvm &lt;span class="nb">alias&lt;/span> default &lt;span class="m">24&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>--reinstall-packages-from=current&lt;/code>는 기존에 전역 설치한 패키지들을 새 버전으로 자동 이전합니다.&lt;/p>
+&lt;h3 id="windows--nvm-windows">Windows — nvm-windows&lt;/h3>
+&lt;p>Windows는 별도의 프로젝트인 &lt;strong>nvm-windows&lt;/strong>를 사용합니다.&lt;/p>
+&lt;ol>
+&lt;li>&lt;a href="https://github.com/coreybutler/nvm-windows/releases">https://github.com/coreybutler/nvm-windows/releases&lt;/a> 에서 &lt;code>nvm-setup.exe&lt;/code> 다운로드 후 설치&lt;/li>
+&lt;li>&lt;strong>관리자 권한으로&lt;/strong> PowerShell 또는 CMD 실행&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-powershell" data-lang="powershell">&lt;span class="line">&lt;span class="cl">&lt;span class="c"># 최신 Node 24.x 설치&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nvm&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="mf">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"># 설치된 24.x 중 하나를 활성화&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nvm&lt;/span> &lt;span class="n">use&lt;/span> &lt;span class="mf">24&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>Windows에서 최신 패치 버전으로 업데이트&lt;/strong>:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-powershell" data-lang="powershell">&lt;span class="line">&lt;span class="cl">&lt;span class="n">nvm&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="mf">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nvm&lt;/span> &lt;span class="n">use&lt;/span> &lt;span class="mf">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c"># (선택) 이전 버전 제거&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">nvm&lt;/span> &lt;span class="n">uninstall&lt;/span> &lt;span class="p">&amp;lt;&lt;/span>&lt;span class="n">이전버전&lt;/span>&lt;span class="p">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="설치-확인">설치 확인&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">node -v &lt;span class="c1"># v24.x.x 가 출력되어야 함&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;hr>
+&lt;h2 id="3단계-npm-11100-이상으로-업그레이드">3단계: npm 11.10.0 이상으로 업그레이드&lt;/h2>
+&lt;p>Node 24를 설치해도 번들된 npm이 11.10.0보다 낮을 수 있습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm -v
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>11.10.0 미만이라면 업그레이드:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm install -g npm@latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>&lt;strong>nvm 사용자 참고&lt;/strong>: 이 명령은 &lt;code>-g&lt;/code>로 설치하지만, nvm이 각 Node 버전마다 독립된 전역 디렉터리를 두기 때문에 &lt;strong>sudo / 관리자 권한 없이&lt;/strong> 실행할 수 있습니다. 단, 이렇게 업그레이드한 npm은 &lt;strong>현재 활성화된 Node 버전에만&lt;/strong> 적용됩니다. 다른 Node 버전으로 전환(&lt;code>nvm use&lt;/code>)하면 해당 버전에 번들된 npm으로 되돌아갑니다.&lt;/p>&lt;/blockquote>
+&lt;p>확인:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm -v &lt;span class="c1"># 11.10.0 이상이어야 함&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;hr>
+&lt;h2 id="4단계-min-release-age-설정">4단계: &lt;code>min-release-age&lt;/code> 설정&lt;/h2>
+&lt;p>사용자 수준 &lt;code>.npmrc&lt;/code> 파일에 설정을 추가합니다. 이 파일의 위치는 OS별로 다릅니다.&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>macOS / Linux&lt;/strong>: &lt;code>~/.npmrc&lt;/code>&lt;/li>
+&lt;li>&lt;strong>Windows&lt;/strong>: &lt;code>C:\Users\&amp;lt;사용자명&amp;gt;\.npmrc&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>OS 공통 명령&lt;/strong>으로 설정:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm config &lt;span class="nb">set&lt;/span> min-release-age &lt;span class="m">7&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>7&lt;/code>은 &lt;strong>일(day)&lt;/strong> 단위입니다 (pnpm은 분 단위이니 혼동 주의). 권장값:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>값&lt;/th>
+&lt;th>설명&lt;/th>
+&lt;th>적합한 환경&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>1&lt;/code>&lt;/td>
+&lt;td>최소 방어. 대부분의 악성 패키지는 수 시간 내 제거됨&lt;/td>
+&lt;td>빠른 업데이트가 필요한 개인 프로젝트&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>3&lt;/code>&lt;/td>
+&lt;td>균형 잡힌 선택. Renovate Bot의 권장 기본값&lt;/td>
+&lt;td>일반 팀/프로젝트&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>7&lt;/code>&lt;/td>
+&lt;td>견고한 방어. 일반적으로 추천&lt;/td>
+&lt;td>대부분의 팀에 적합&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>14&lt;/code>+&lt;/td>
+&lt;td>매우 보수적&lt;/td>
+&lt;td>엔터프라이즈 / 금융권&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="파일-내용-확인">파일 내용 확인&lt;/h3>
+&lt;p>&lt;strong>macOS / Linux:&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">cat ~/.npmrc
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>Windows (PowerShell):&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-powershell" data-lang="powershell">&lt;span class="line">&lt;span class="cl">&lt;span class="nb">Get-Content&lt;/span> &lt;span class="nv">$HOME&lt;/span>&lt;span class="p">\.&lt;/span>&lt;span class="py">npmrc&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>출력에 &lt;code>min-release-age=7&lt;/code>이 포함되어 있으면 정상입니다.&lt;/p>
+&lt;hr>
+&lt;h2 id="5단계-설정이-실제로-작동하는지-검증">5단계: 설정이 실제로 작동하는지 검증&lt;/h2>
+&lt;blockquote>
+&lt;p>⚠️ &lt;strong>알려진 버그 주의&lt;/strong>: 현재 npm 버전(~11.12.x)에서는 &lt;code>npm config get min-release-age&lt;/code>가 &lt;code>null&lt;/code>을 반환하는 표시 버그(&lt;a href="https://github.com/npm/cli/issues/9199">npm/cli#9199&lt;/a>)가 있습니다. &lt;strong>실제 기능은 정상 동작&lt;/strong>합니다. 따라서 &lt;code>config get&lt;/code> 대신 아래의 &lt;strong>실제 설치 시험&lt;/strong>으로 검증하세요.&lt;/p>&lt;/blockquote>
+&lt;h3 id="최근-7일-이내에-배포된-버전을-찾아-설치-시도">최근 7일 이내에 배포된 버전을 찾아 설치 시도&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">&lt;span class="c1"># 최근에 자주 배포되는 패키지의 버전 히스토리 확인&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">npm view @types/node &lt;span class="nb">time&lt;/span> --json
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>출력에서 &lt;strong>최근 7일 이내 날짜&lt;/strong>의 버전을 하나 고릅니다. 그 다음 임시 폴더에서:&lt;/p>
+&lt;p>&lt;strong>macOS / Linux:&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">mkdir -p /tmp/npm-test &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="nb">cd&lt;/span> /tmp/npm-test
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">npm install @types/node@&amp;lt;최근버전&amp;gt; --dry-run
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>Windows (PowerShell):&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-powershell" data-lang="powershell">&lt;span class="line">&lt;span class="cl">&lt;span class="n">mkdir&lt;/span> &lt;span class="nv">$env:TEMP&lt;/span>&lt;span class="p">\&lt;/span>&lt;span class="nb">npm-test&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nb">cd &lt;/span>&lt;span class="nv">$env:TEMP&lt;/span>&lt;span class="p">\&lt;/span>&lt;span class="nb">npm-test&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">npm&lt;/span> &lt;span class="n">install&lt;/span> &lt;span class="nv">@types&lt;/span>&lt;span class="p">/&lt;/span>&lt;span class="n">node&lt;/span>&lt;span class="p">@&amp;lt;&lt;/span>&lt;span class="n">최근버전&lt;/span>&lt;span class="p">&amp;gt;&lt;/span> &lt;span class="p">-&lt;/span>&lt;span class="n">-dry-run&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="성공-시-출력-예시">성공 시 출력 예시&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">npm error code ETARGET
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">npm error notarget No matching version found for @types/node@X.X.X
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> with a date before 2026/M/D, HH:MM:SS.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&amp;ldquo;&lt;code>with a date before ...&lt;/code>&amp;rdquo; 의 날짜가 &lt;strong>오늘로부터 설정한 일수 이전&lt;/strong>이면 정상 동작 중입니다. 설정된 기간보다 최근에 배포된 버전은 설치가 거부됩니다.&lt;/p>
+&lt;hr>
+&lt;h2 id="긴급-상황-대응-일회성으로-제한-우회">긴급 상황 대응: 일회성으로 제한 우회&lt;/h2>
+&lt;p>긴급 CVE 패치가 출시되어 최신 버전을 즉시 설치해야 하는 경우, 한 번만 제한을 우회할 수 있습니다:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm install &amp;lt;패키지명&amp;gt; --min-release-age&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>전역 &lt;code>.npmrc&lt;/code> 설정은 유지되며, 이 명령에서만 제한이 무시됩니다.&lt;/p>
+&lt;hr>
+&lt;h2 id="주의사항-및-한계">주의사항 및 한계&lt;/h2>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>npm ci&lt;/code>는 영향을 받지 않습니다.&lt;/strong>
+&lt;code>min-release-age&lt;/code>는 &lt;code>npm install&lt;/code>의 의존성 해결 과정에 적용됩니다. &lt;code>package-lock.json&lt;/code>이 이미 있고 &lt;code>npm ci&lt;/code>로 설치하는 경우(주로 CI 환경), 락파일에 고정된 버전을 설치하므로 이 설정과 무관합니다. → &lt;strong>개발자의 로컬 머신에서 락파일에 악성 버전이 고정되는 것을 막는 것이 핵심 방어선&lt;/strong>입니다.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>~&lt;/code> 버전 범위 관련 버그.&lt;/strong>
+의존성에 &lt;code>~1.2.3&lt;/code>처럼 &lt;code>~&lt;/code> 범위 지정자가 포함된 경우 min-release-age가 에러를 일으킬 수 있습니다 (&lt;a href="https://github.com/npm/cli/issues/9005">npm/cli#9005&lt;/a>). 수정되기 전까지는 &lt;code>^&lt;/code>를 사용하는 것을 권장합니다.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>숫자만 허용.&lt;/strong>
+&lt;code>7d&lt;/code>, &lt;code>7days&lt;/code> 같은 문자 접미사 형식은 지원하지 않습니다. 오직 &lt;strong>정수(일수)&lt;/strong> 만 유효한 값입니다.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>예외 목록 미지원.&lt;/strong>
+pnpm과 달리 현재 npm은 &amp;ldquo;이 패키지만 예외&amp;rdquo; 같은 화이트리스트 기능이 없습니다(&lt;a href="https://github.com/npm/cli/issues/8979">npm/cli#8979&lt;/a>). 긴급한 경우 위의 &lt;code>--min-release-age=0&lt;/code> 플래그로 우회하세요.&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;h2 id="추가-보안-권장-사항-axios-공격에서-배운-교훈">추가 보안 권장 사항 (axios 공격에서 배운 교훈)&lt;/h2>
+&lt;p>&lt;code>min-release-age&lt;/code>는 공급망 공격 방어의 &lt;strong>첫 번째 방어선&lt;/strong>일 뿐입니다. 다음 조치들을 함께 적용하면 훨씬 안전합니다.&lt;/p>
+&lt;h3 id="1-package-lockjson을-반드시-git에-커밋">(1) &lt;code>package-lock.json&lt;/code>을 반드시 Git에 커밋&lt;/h3>
+&lt;p>락파일이 있어야 &lt;code>npm ci&lt;/code>로 재현 가능한 설치가 가능하고, 의도치 않은 버전 업그레이드를 막을 수 있습니다.&lt;/p>
+&lt;h3 id="2-ci에서는-npm-install-대신-npm-ci-사용">(2) CI에서는 &lt;code>npm install&lt;/code> 대신 &lt;code>npm ci&lt;/code> 사용&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm ci
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>락파일에 고정된 버전만 설치하므로, 악성 패키지가 떠도 CI가 자동으로 업그레이드하지 않습니다.&lt;/p>
+&lt;h3 id="3-프로덕션-빌드에서-lifecycle-script-비활성화-고려">(3) 프로덕션 빌드에서 lifecycle script 비활성화 고려&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm config &lt;span class="nb">set&lt;/span> ignore-scripts &lt;span class="nb">true&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>postinstall&lt;/code> 같은 훅이 실행되지 않아 axios 사례와 같은 공격 대부분을 원천 차단합니다. 단, 일부 정상 패키지(네이티브 바인딩 포함)는 빌드에 실패할 수 있으므로 &lt;strong>CI에서 먼저 검증&lt;/strong> 후 적용하세요.&lt;/p>
+&lt;h3 id="4-axios-감염-여부-직접-점검">(4) axios 감염 여부 직접 점검&lt;/h3>
+&lt;p>현재 프로젝트에 악성 버전이 혹시 들어와 있지 않은지 확인:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm ls axios
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">npm ls plain-crypto-js
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>다음 중 하나라도 발견되면 &lt;strong>즉시 감염으로 간주&lt;/strong>하고 조치하세요:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>axios@1.14.1&lt;/code>&lt;/li>
+&lt;li>&lt;code>axios@0.30.4&lt;/code>&lt;/li>
+&lt;li>&lt;code>plain-crypto-js&lt;/code>(모든 버전)&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>조치 절차&lt;/strong>&lt;/p>
+&lt;ol>
+&lt;li>해당 머신의 &lt;strong>모든 자격증명 즉시 회전(rotate)&lt;/strong>:
+API 키, SSH 키, GitHub/npm 토큰, 클라우드 크리덴셜 등&lt;/li>
+&lt;li>캐시 삭제:
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">npm cache clean --force
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/li>
+&lt;li>안전한 버전으로 다운그레이드 (&lt;code>axios@1.14.0&lt;/code> 또는 &lt;code>axios@0.30.3&lt;/code>)&lt;/li>
+&lt;li>CI/CD 로그에서 2026년 3월 31일 00:21 UTC ~ 03:15 UTC 사이 &lt;code>npm install&lt;/code> 실행 이력 검토&lt;/li>
+&lt;/ol>
+&lt;hr>
+&lt;h2 id="참고-자료">참고 자료&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.npmjs.com/cli/v11/using-npm/config#min-release-age">npm 공식 문서: min-release-age&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/axios/axios/issues/10636">axios 공격 Post Mortem (GitHub Issue #10636)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise/">Microsoft Security: Mitigating the Axios npm supply chain compromise&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://socket.dev/blog/npm-introduces-minimumreleaseage-and-bulk-oidc-configuration">Socket Blog: npm Introduces minimumReleaseAge&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/nvm-sh/nvm">nvm (macOS / Linux)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/coreybutler/nvm-windows">nvm-windows&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;p>&lt;em>최종 업데이트: 2026년 4월 16일&lt;/em>&lt;/p></content></item></channel></rss>

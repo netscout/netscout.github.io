@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AI on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/AI/</link><description>Recent content in AI on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Sat, 24 May 2025 09:36:07 +0900</lastBuildDate><atom:link href="https://netscout.github.io/tags/AI/index.xml" rel="self" type="application/rss+xml"/><item><title>Cursor와 MCP를 활용한 프로젝트 설정</title><link>https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/</link><pubDate>Sat, 24 May 2025 09:36:07 +0900</pubDate><guid>https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/</guid><description>2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &amp;ldquo;xxx&amp;quot;에 대해서 …</description><content>&lt;h2 id="앉아봐라-그-시절에는-말이야">앉아봐라 그 시절에는 말이야&amp;hellip;&lt;/h2>
+&lt;p>2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &amp;ldquo;xxx&amp;quot;에 대해서 검색해보라고 했더니 정말 검색창에 &amp;ldquo;xxx&amp;quot;만 입력하는 걸 보고 경악했던 일도 있었습니다. 그 당시 구글은 대화 상대도 아니었고 그저 정보를 찾기 위한 검색툴에 불과했으니 툴을 사용해보지 않은 사람들은 사용이 어려웠던 겁니다.&lt;/p>
+&lt;p>그런데 ChatGPT를 기점으로 시대가 많이 변하더니 이젠 변화의 속도가 점점 가속화 되어 잠시만 눈을 떼면 따라잡기가 어렵다는 느낌이 듭니다. 심지어 이러다가 뒤쳐지는 정도가 아니라 아예 쓸모없어지는게 아닌가 하는 공포마저 들게 됩니다. 별 수 있나요&amp;hellip; 최소한 이런 발전에 뒤쳐지지만 말자고 생각하고 노력하는 수 밖에 없죠!&lt;/p>
+&lt;h2 id="mcp가-정말-좋다며-근데">MCP가 정말 좋다며? 근데&amp;hellip;&lt;/h2>
+&lt;p>최근에는 MCP나 A2A 같이 에이전트의 활용에 대한 내용들이 많이 나오는 거 같습니다. A2A는 에이전트 간의 협업에 대한 거고, MCP는 에이전트가 활용할 수 있는 툴에 대한 거니까 범위는 다르지만 어쨌건 에이전트 시대에 에이전트를 좀 더 잘 활용할 수 있는 시대로 변화하고 있음은 분명합니다. 세상은 돌고 도는 거라 2000년대 초반에 SOAP를 기반으로 한 웹서비스의 느낌이 들기도 합니다만 어쨌건 구조가 비슷하게 느껴질 뿐 하는 일은 천지차이죠.&lt;/p>
+&lt;p>MCP에 대해 사람들이 이야기 하는 걸 들어보면 분명 엄청난 프로토콜은 맞습니다만, 저와는 상관이 없어보였습니다. 피그마에서 디자인한 내용을 MCP를 통해 프론트까지 구현한다던지 하는 건 분명 대단하지만, 저는 피그마를 사용하지 않기 때문에 &amp;ldquo;아 저게 어떤 상황에서는 미친 생산성이 나오겠구나&amp;quot;하는 정도였죠. 근데 진짜 누구에게나 사용가능한 미친 MCP를 발견했습니다. 아니, 이미 존재하고 있었지만 조합해보니 대단했던 거죠.&lt;/p>
+&lt;h2 id="context7과-sequential-thinking">Context7과 Sequential Thinking&lt;/h2>
+&lt;p>&lt;a href="https://context7.com">Context7&lt;/a> 은 AI를 사용하는 데 있어 가장 중요한 부분인 context의 문제를 해결해줍니다. AI를 학습된 내용을 바탕으로 코드나 답변을 생성하기 때문에 뭔가 최신으로 업데이트된 내용은 제대로 고려하지 못합니다. Context7은 주요 프레임워크나 SDK등의 사용법을 주요 언어 및 환경 별로 어떻게 사용해야 하는지 등을 정리해서 모아놓은 사이트이고, Context7 MCP는 에이전트가 이러한 내용을 자율적으로 검색해서 구현이나 답변에 참고할 수 있도록 해줍니다. 최신 정보를 에이전트가 알아서 가져다 쓸 수 있다는 거죠!&lt;/p>
+&lt;p>그리고 &lt;a href="https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking">Sequential Thinking MCP Server&lt;/a> 는 에이전트가 사용자의 요청을 받았을 때, 구조화된 사고 과정을 거쳐서 큰 문제를 작게 쪼개고 더 나은 방법을 찾기 위해서 자신의 사고를 검증 하는 등 에이전트의 문제 해결력을 더 높여주는 MCP입니다. 이 MCP는 단독으로 사용해도 큰 효과를 주지만 Context7이랑 합치면 더 시너지가 납니다!&lt;/p>
+&lt;h2 id="직접-해보자">직접 해보자.&lt;/h2>
+&lt;p>우선 &lt;a href="https://youtu.be/TrXBzzsUUY4?si=OrOAD1JO8qobF-S8">개발 동생님의 Context7 소개 영상&lt;/a> 을 보면, 두 MCP를 활용해서 아주 간단한 사칙연산을 하는 MCP 서버를 만드는 과정을 보여줍니다. 저도 한 번 따라해봤습니다. 와 정말 대박이었습니다. 이 간단한 과정을 통해서 실제 동작하는 MCP 서버를 만들 수 있다니! 이렇게 함으로써 저는 typescript를 이용해서 MCP 서버를 어떻게 만들어야 하는지 한 번에 이해할 수 있었습니다.&lt;/p>
+&lt;p>그리고 실제 업무나 개인적으로 스터디할 때 이 MCP를 적극활용하기 시작했습니다. 효과는 정말 대단했습니다. 그 중에 개인 스터디를 위해 준비했던 내용을 공유해보겠습니다.&lt;/p>
+&lt;h2 id="어떤-상황이냐">어떤 상황이냐&lt;/h2>
+&lt;p>최근에 mongodb에 대해서(특히 aggregation pipeline) 한 번 정리하고 싶은 마음이 생겨서 에제 코드를 작성해보고자 했습니다. 그래서 ChatGPT를 통해 기본 구조를 뽑아냈죠. 학생과 선생님 collection이 있는 구조를 설명해주고 초기 데이터를 구성하는 seed 코드를 다음과 같이 생성했습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// seed.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Node.js MongoDB seed script for students and teachers collections
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">MongoClient&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ObjectId&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;mongodb&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">faker&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;faker&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Configuration
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">MONGO_URI&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">env&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">MONGO_URI&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="s2">&amp;#34;mongodb://localhost:27017&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">DB_NAME&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">env&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">DB_NAME&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="s2">&amp;#34;school&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Constants
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">GRADES&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">5&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">6&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">CLASSES&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;A&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;B&amp;#34;&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Utility to generate random scores array
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">function&lt;/span> &lt;span class="nx">generateScores&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">count&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">5&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">from&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">length&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">count&lt;/span> &lt;span class="p">}).&lt;/span>&lt;span class="nx">map&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">math&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">english&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">coding&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">async&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="nx">seed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">client&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MongoClient&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">MONGO_URI&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">useUnifiedTopology&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kc">true&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">connect&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">db&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">db&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">DB_NAME&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Clear existing data
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;students&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">deleteMany&lt;/span>&lt;span class="p">({});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;teachers&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">deleteMany&lt;/span>&lt;span class="p">({});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Generate students
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">students&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">GRADES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">CLASSES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">-&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">18&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">students&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">_id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">ObjectId&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">findName&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">grade&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">class&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">className&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">scores&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">generateScores&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Generate teachers
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">teachers&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">GRADES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">CLASSES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">-&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">teachers&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">_id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">ObjectId&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">findName&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">grade&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">class&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">className&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Insert seed data
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">studentResult&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;students&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">insertMany&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">students&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">teacherResult&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;teachers&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">insertMany&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">teachers&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Inserted &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">studentResult&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">insertedCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> students`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Inserted &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">teacherResult&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">insertedCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> teachers`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Seeding completed successfully.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">catch&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Error during seeding:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">finally&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">close&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">seed&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이 코드가 아주 정확하냐 뭐 그런건 그렇게 중요하진 않았습니다. 나중에 수정하면 되니까요. 그리고 빈 폴더를 하나 만들고 &lt;code>Cursor&lt;/code>를 열고 다음과 같이 요청했습니다. 사용된 모델은 &lt;code>Cluade 3.7 Sonnet&lt;/code> 입니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">i need to create node.js app for studying mongodb aggregation pipeline.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">so i need to create basic project structure and seed script using mongodb node.js driver.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use context7 for looking for how to use node.js mongodb driver.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use sequantial thinking mcp to plan how to create basic project structure and seeding mongodb collestion.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">here&amp;#39;s starter seed script:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// seed.js
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Node.js MongoDB seed script for students and teachers collections
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const { MongoClient, ObjectId } = require(&amp;#39;mongodb&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const faker = require(&amp;#39;faker&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const MONGO_URI = process.env.MONGO_URI || &amp;#39;mongodb://localhost:27017&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const DB_NAME = process.env.DB_NAME || &amp;#39;school&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Constants
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const GRADES = [1, 2, 3, 4, 5, 6];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const CLASSES = [&amp;#39;A&amp;#39;, &amp;#39;B&amp;#39;];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Utility to generate random scores array
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">function generateScores() {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const count = faker.datatype.number({ min: 3, max: 5 });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return Array.from({ length: count }).map(() =&amp;gt; ({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> math: faker.datatype.number({ min: 40, max: 100 }),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> english: faker.datatype.number({ min: 40, max: 100 }),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> coding: faker.datatype.number({ min: 40, max: 100 })
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }));
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async function seed() {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const client = new MongoClient(MONGO_URI, { useUnifiedTopology: true });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> try {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await client.connect();
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const db = client.db(DB_NAME);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Clear existing data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await db.collection(&amp;#39;students&amp;#39;).deleteMany({});
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await db.collection(&amp;#39;teachers&amp;#39;).deleteMany({});
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Generate students
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const students = [];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> GRADES.forEach(grade =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> CLASSES.forEach(cls =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const className = `${grade}-${cls}`;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for (let i = 0; i &amp;lt; 18; i++) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> students.push({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> _id: new ObjectId(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> name: faker.name.findName(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> grade,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> class: className,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> scores: generateScores()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Generate teachers
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const teachers = [];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> GRADES.forEach(grade =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> CLASSES.forEach(cls =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const className = `${grade}-${cls}`;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> teachers.push({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> _id: new ObjectId(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> name: faker.name.findName(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> grade,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> class: className
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Insert seed data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const studentResult = await db.collection(&amp;#39;students&amp;#39;).insertMany(students);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const teacherResult = await db.collection(&amp;#39;teachers&amp;#39;).insertMany(teachers);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(`Inserted ${studentResult.insertedCount} students`);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(`Inserted ${teacherResult.insertedCount} teachers`);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(&amp;#39;Seeding completed successfully.&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> } catch (err) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.error(&amp;#39;Error during seeding:&amp;#39;, err);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> } finally {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await client.close();
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">seed();
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Context7 MCP를 통해 mongodb 드라이버의 사용법을 참고하고, Sequential Thinking MCP를 어떻게 작업할지 구상해보라고 했습니다. 그러자 에이전트가 MCP를 호출하기 시작합니다.&lt;/p>
+&lt;p align="center">&lt;img src="./01.png">&lt;/p>
+&lt;p>mongodb와 node.js driver 연결방법, 그리고 aggregation pipeline 사용법을 참고하고 있네요!&lt;/p>
+&lt;p>그리고 최종적으로 다음과 같이 정리해줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-markdown" data-lang="markdown">&lt;span class="line">&lt;span class="cl">I&amp;#39;ve created a complete Node.js project for studying MongoDB aggregation pipelines. Here&amp;#39;s what I&amp;#39;ve set up:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Project Structure
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mongodb-aggregation-study/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── package.json # Dependencies and npm scripts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── .gitignore # Git ignore file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── README.md # Project documentation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── src/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── config/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── db.js # MongoDB connection configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── examples/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ ├── basic.js # Basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── advanced.js # Advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── index.js # Main application entry point
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── scripts/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── seed.js # Database seeding script
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Key Features
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">1.&lt;/span> &lt;span class="gs">**Database Configuration**&lt;/span>: A reusable MongoDB connection module in &lt;span class="sb">`db.js`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">2.&lt;/span> &lt;span class="gs">**Seed Script**&lt;/span>: Updated version of your script using &lt;span class="sb">`@faker-js/faker`&lt;/span> to populate the database with students and teachers data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">3.&lt;/span> &lt;span class="gs">**Aggregation Examples**&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> **Basic**: Simple examples using $match, $group, $project, and $lookup
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> **Advanced**: Complex examples with $expr, $bucket, $reduce, and $facet
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">4.&lt;/span> &lt;span class="gs">**NPM Scripts**&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run seed`&lt;/span> - Populate the database
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run example:basic`&lt;/span> - Run basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run example:advanced`&lt;/span> - Run advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm start`&lt;/span> - Run the main application
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Getting Started
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To use this project:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">1.&lt;/span> Ensure MongoDB is running locally (or update the connection URI in your environment)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">2.&lt;/span> Install dependencies with &lt;span class="sb">`npm install`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">3.&lt;/span> Run &lt;span class="sb">`npm run seed`&lt;/span> to populate the database
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">4.&lt;/span> Try the examples with &lt;span class="sb">`npm run example:basic`&lt;/span> or &lt;span class="sb">`npm run example:advanced`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">The project provides a practical environment for learning and experimenting with MongoDB&amp;#39;s powerful aggregation pipeline features.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mongodb-aggregation-study/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── package.json # Dependencies and npm scripts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── .gitignore # Git ignore file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── README.md # Project documentation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── src/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── config/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── db.js # MongoDB connection configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── examples/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ ├── basic.js # Basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── advanced.js # Advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── index.js # Main application entry point
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── scripts/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── seed.js # Database seeding script
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>딱히 제가 요청하지 않았던 프로젝트 구조와 기초 및 고급 예제, 그리고 커맨드 까지 생성해서 알려줍니다!&lt;/p>
+&lt;p>이번엔 mongodb를 도커로 실행하는 방법을 요청해보겠습니다. 이번에도 context7 MCP를 통해 사용법을 참고하라고 알려줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">very well! i need to run mongodb using docker on local. can you add instruction in @README.md for this?
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use context7 if you need to reference how to do it
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그러자 이렇게 답변해줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-markdown" data-lang="markdown">&lt;span class="line">&lt;span class="cl">Here are clear instructions you can add to your &lt;span class="sb">`README.md`&lt;/span> for running MongoDB locally using Docker. This is the most common and recommended way for local development, and it will work cross-platform.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">---
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">## Running MongoDB Locally with Docker
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">If you don&amp;#39;t have MongoDB installed on your machine, you can easily run it using Docker:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run --name mongodb-aggregation-study -d -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=mongo -e MONGO_INITDB_ROOT_PASSWORD=mongo mongo:latest
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> This command will:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Pull the latest MongoDB image if you don&amp;#39;t have it.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Start a MongoDB server in a container named &lt;span class="sb">`mongodb-aggregation-study`&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Expose MongoDB on the default port &lt;span class="sb">`27017`&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Set the root username and password to &lt;span class="sb">`mongo`&lt;/span> (you can change these if you want).
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Connecting from your app
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> By default, your &lt;span class="sb">`.env`&lt;/span> should use:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> MONGO_URI=mongodb://localhost:27017
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> DB_NAME=school
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> If you want to use authentication, update your &lt;span class="sb">`.env`&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> MONGO_URI=mongodb://mongo:mongo&lt;span class="ni">@localhost:27017&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> DB_NAME=school
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> And make sure your MongoDB connection code supports authentication.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Stopping and Removing the Container
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To stop MongoDB:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker stop mongodb-aggregation-study
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To remove the container:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker rm mongodb-aggregation-study
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 데이터 구조에 변경이 필요해서, 구조를 변경함과 동시에 예제로 같이 수정해달라고 요청했습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">currently @generateScores() generate randomly 3-5 scores for math, english, coding. but let&amp;#39;s update this to:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mid: { math, english, coding },
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> final: { math, english, coding }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">and update example aggregations if needed.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그러면 예제까지 싹 다 고쳐줍니다! 물론 중간 중간에 .env의 호출이 빠져서 환경 변수를 못읽어오는 바람에 mongodb에 접속이 안된다던지 하는 사소한 문제가 있긴 했지만요.&lt;/p>
+&lt;h2 id="ai-시대는-일하는-방법이-다르구나">AI 시대는 일하는 방법이 다르구나!&lt;/h2>
+&lt;p>AI를 개발에 활용한지 2년이 다 되어가는데, 너무 많이 부족합니다. 그만큼 AI의 발전이 빠르다는 말이겠죠. 최근에는 그냥 자연어 기반으로 에이전트를 백그라운드에서 굴리는 OpenAI Codex나 Claude Code 등이 새로운 개발 트렌드로 떠오르는 거 같습니다. 이렇게 되면 에이전트를 여러 개 굴리면서 그냥 말로만 코딩하는 시대가 될 거 같기도 한데요&amp;hellip; 아직 돈이 없어서 이런 툴들을 써보진 못했습니다. 조만간에 기회가 있으면 시도해봐야죠. 적어도 뒤쳐지지는 말아야죠!&lt;/p></content></item><item><title>Github Copilot First Look - 첫 인상과 React 개발 일주일 사용후기</title><link>https://netscout.github.io/posts/github-copilot-first-look-%EC%B2%AB-%EC%9D%B8%EC%83%81%EA%B3%BC-react-%EA%B0%9C%EB%B0%9C-%EC%9D%BC%EC%A3%BC%EC%9D%BC-%EC%82%AC%EC%9A%A9%ED%9B%84%EA%B8%B0/</link><pubDate>Mon, 03 Oct 2022 09:52:29 +0900</pubDate><guid>https://netscout.github.io/posts/github-copilot-first-look-%EC%B2%AB-%EC%9D%B8%EC%83%81%EA%B3%BC-react-%EA%B0%9C%EB%B0%9C-%EC%9D%BC%EC%A3%BC%EC%9D%BC-%EC%82%AC%EC%9A%A9%ED%9B%84%EA%B8%B0/</guid><description>지난 6월에 Github에서 Copliot을 정식으로 출시하여 이제 일반 사용자들도 사용해볼 수 있게 되었습니다.(출시한지가 언젠데 이제서야&amp;hellip;😞) 하도 주변에서 copliot에 대한 찬사를 하고, 심지어 이제 AI가 코딩을 더 잘한다는 소리까지 듣게 되니 좀 많이 …</description><content>&lt;p>지난 6월에 Github에서 Copliot을 정식으로 출시하여 이제 일반 사용자들도 사용해볼 수 있게 되었습니다.(출시한지가 언젠데 이제서야&amp;hellip;😞) 하도 주변에서 copliot에 대한 찬사를 하고, 심지어 이제 AI가 코딩을 더 잘한다는 소리까지 듣게 되니 좀 많이 궁금해지더군요! 하지만 궁금함이 귀찮음을 이기지 못하던 차에 한 뉴스를 접하게 됐습니다. AI가 그린 그림이 한 공모전에서 1등을 했다는 뉴스였는데요. 그림 분야에서 AI의 위협이 무시하지 못할 수준이라는 건 알았지만, &amp;lsquo;copilot이 과연 개발자의 일을 뺏아갈 수 있을까?&amp;rsquo; 하는 의문이 들었습니다. 드디어 호기심이 귀찮음을 뛰어넘을 수 있는 기회가 왔기에 한 번 찍먹 해보기로 했습니다. 근데 찍먹해보기 전에 방금 전해드린 AI 뉴스부터 한 번 보고갈까요?&lt;/p>
+&lt;h2 id="정말-ai가-내-직업을-뺏을까">정말 AI가 내 직업을 뺏을까?&lt;/h2>
+&lt;p>AI의 발전은 갈수록 그 속도가 더 빨라지고 있습니다. 최근에 미국에서는 AI가 그린 그림이 공모전 1등을 해서 논란이 일었습니다. 보도에 따르면 출품 당시 &amp;lsquo;미드 저니&amp;rsquo;라는 AI를 통해 그린 것임을 미리 밝혔지만, 일부 심사위원은 AI가 그린 그림인지 인지하지 못할 정도였다고 합니다. 어느 정도 였길래 1등을 먹었을까요?&lt;/p>
+&lt;p align="center">&lt;img src="./115301737.1.jpg">&lt;/p>
+(출처: 동아일보, https://www.donga.com/news/article/all/20220905/115301579/1)
+&lt;br />&lt;br />
+확실히 이 정도면 그림을 잘 모르는 제가 봐도 "와 쩐다" 싶은 느낌이 들긴합니다. 그리고 이런 논란이 있기 한참 전 부터 각종 커뮤니티에서는 키워드만 입력해주면 일러스트나 캐릭터를 그려주는 사이트에 대한 이야기가 많이 올라오곤 했습니다. 생각난 김에 저도 [DALL·E2](https://labs.openai.com/) 로 그림을 하나 그려보기로 했습니다.
+&lt;br />&lt;br />
+&lt;p align="center">&lt;img src="./dalle2.png">&lt;/p>
+&lt;p>&lt;strong>korean programmer&lt;/strong> 라고 치자 제법 그럴듯한 이미지들이 몇 초만에 생성됩니다. 세세하게 살펴보면 얼굴의 눈가 쪽과 손가락이 엉성한 느낌이 들긴 하지만, 만약 제가 그림을 그리는 입장이라면 좀 민감하게 받아들일 것 같습니다.🥺&lt;/p>
+&lt;p align="center">
+&lt;img src="./183a731e20b3915fe_AdobeExpress.gif" width="300">&lt;br />
+이럴 수가... AI 네 이놈...
+&lt;/p>
+&lt;p>그런데 말입니다&amp;hellip;.&lt;/p>
+&lt;p>과연 개발자들은 안전한 걸까요? 아래 영상을 보면 그런 생각이 들기도 합니다&amp;hellip;&lt;/p>
+&lt;p>&lt;a href="https://www.youtube.com/watch?v=R-lIeSR8-hE">코딩접어야겠습니다 만원짜리 AI가 더 코딩 잘함&lt;/a>&lt;/p>
+&lt;h2 id="그래서-직접-테스트를-해봤습니다">그래서 직접 테스트를 해봤습니다&lt;/h2>
+&lt;p>남이 만들어 놓은 영상만 보고 판단하는 건 현명하지 못한 생각이겠죠? 그래서 직접 테스트를 해보기로 하고 copilot을 신청하고 환경을 세팅했습니다.&lt;/p>
+&lt;p>아주 간단한 것 부터 테스트를 시작했습니다.🧐&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-29-32.gif">&lt;/p>
+&lt;p>함수의 이름을 보고 합계를 구하는 그럴듯한 코드를 제시해줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">caculateSum&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">a&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">b&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="nx">a&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="nx">b&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>조금 더 복잡한 코드를 요구해볼까요?&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-31-32.gif">&lt;/p>
+&lt;p>문자열을 뒤집는 함수도 잘 짜줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">reverseString&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">str&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nx">str&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">split&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">reverse&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="nx">join&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p align="center">&lt;img src="./그럴싸한데.jpg">&lt;br />호오... 그럴싸 한데??&lt;/p>
+&lt;p>좀 더 복잡한 코드를 테스트 해보죠!&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-35-40.gif">&lt;/p>
+&lt;p>주석으로 큐를 구현해달라고 요청하면, 큐를 구현하는 코드와 함께 테스트 할 수 있는 코드까지도 제안해줍니다!&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * implement queue using two stacks
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">class&lt;/span> &lt;span class="nx">Queue&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">constructor&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack1&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack2&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">enqueue&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">item&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">item&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">dequeue&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">length&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">length&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">pop&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stack2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">pop&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">queue&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">Queue&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">enqueue&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">enqueue&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">enqueue&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">dequeue&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">dequeue&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">queue&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">dequeue&lt;/span>&lt;span class="p">());&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>내가 원하는 코드가 나오지 않을 때는 &lt;strong>Alt + &amp;ldquo;[&amp;rdquo; or &amp;ldquo;]&amp;rdquo;&lt;/strong> 맥에서는 &lt;strong>option + &amp;ldquo;[&amp;rdquo; or &amp;ldquo;]&amp;rdquo;&lt;/strong> 를 통해서 제안되는 코드를 변경할 수 있습니다. 그리고 제안을 받고 싶을 때는 &lt;strong>Alt + &amp;ldquo;\&amp;rdquo;&lt;/strong> 를 누릅니다.&lt;/p>&lt;/blockquote>
+&lt;p>확실히 기대했던 것 보다는 훨씬 똑똑합니다.&lt;/p>
+&lt;p align="center">&lt;img src="./lee-duk-hwa-satisfaction.gif" width="300">&lt;br />조아.. 아주 조아!!!&lt;/p>
+&lt;p>&lt;strong>와&amp;hellip; 이거 쩌는데?&lt;/strong> 하는 생각과 함께 계속 테스트를 이어나갔습니다. 이번에는 사용자에게 숫자를 입력받아서 소수인지 출력하는 코드를 요청해보기로 했습니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-45-00.gif">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 숫자를 입력받아서
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 숫자가 소수인지 출력하기
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">function&lt;/span> &lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">num&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">2&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// true
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">3&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// true
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">4&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// false
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="mi">5&lt;/span>&lt;span class="p">));&lt;/span> &lt;span class="c1">// true
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p align="center">&lt;img src="./270D203E578F3B232B.jpg" width="300">&lt;br />이거 아닌데...&lt;/p>
+&lt;p>코드를 추천해주기는 하지만 제가 원하는 코드는 아닙니다. 사용자가 숫자를 입력할 수 있는 부분이 없거든요. 다시!&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-46-41.gif">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 사용자에게 &amp;#34;숫자를 입력하세요: &amp;#34; 라는 메시지를 출력하고
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 숫자를 입력받아서
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * 숫자가 소수인지 아닌지 출력하기
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">var&lt;/span> &lt;span class="nx">num&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">prompt&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;숫자를 입력하세요: &amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 소수인지 아닌지 판별하기
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">var&lt;/span> &lt;span class="nx">isPrime&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">var&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">num&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">isPrime&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">break&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// 소수인지 아닌지 출력하기
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="s2">&amp;#34;은 소수입니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>좀 더 구체적으로 입력하자 좀 더 적합한 코드를 주기 시작합니다. 하지만 이건 node.js가 아닌 브라우저에서 동작하는 코드죠. 물론 &lt;strong>prompt&lt;/strong> 함수를 추가해서 동작하게 만들 수도 있겠지만요. 다시!&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-52-33.gif">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * node.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * &amp;#34;숫자를 입력하세요:&amp;#34; 숫자 입력받아서 소수 판별
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">var&lt;/span> &lt;span class="nx">readline&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;readline&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kd">var&lt;/span> &lt;span class="nx">rl&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">readline&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">createInterface&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">input&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stdin&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">output&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stdout&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">rl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">question&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;숫자를 입력하세요: &amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">answer&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">var&lt;/span> &lt;span class="nx">num&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">parseInt&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">answer&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kd">var&lt;/span> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">var&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">num&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">result&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">break&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">result&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;소수입니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;소수가 아닙니다.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">close&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>node.js&lt;/strong> 키워드를 추가하자 이제 &lt;strong>node.js&lt;/strong> 에서 실행할 수 있는 코드를 제시해줍니다. 오오오&amp;hellip; 근데 계속 탭키 누르면서 다음줄로 가는 것도 좀 귀찮긴 하죠. 그래서 이번엔 제가 어떤 코드를 원하는지 살짝 힌트를 주기로 했습니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-03-2022%2008-54-23.gif">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * node.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * &amp;#34;숫자를 입력하세요:&amp;#34; 숫자 입력받아서 소수 판별
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">main&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">()&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">readline&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;readline&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">rl&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">readline&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">createInterface&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">input&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stdin&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">output&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">stdout&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">question&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;숫자를 입력하세요: &amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">answer&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">isPrime&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">answer&lt;/span>&lt;span class="p">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">rl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">close&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">isPrime&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="nx">num&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">num&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">===&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="kc">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">main&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>제가 코드를 쭉 늘어놓지 말고 함수로 제안해달라고 힌트를 주자 거기에 맞춰서 코드를 제안해줍니다. 오호&amp;hellip;😆&lt;/p>
+&lt;p align="center">&lt;img src="./20190424221842_alwsmiwa.jpg" width="300">&lt;br />아 이제 대충 사용법은 마스터 한듯 ㅋ&lt;/p>
+&lt;h2 id="이제는-실전이다-react로-일주일-써본-후기">이제는 실전이다. React로 일주일 써본 후기&lt;/h2>
+&lt;p>Github Copliot의 첫 인상은 똑똑하긴 한데, 알아듣게 설명을 해줘야만 일을 잘하는 친구였습니다. 그래서 일단 React 작업을 하면서 능력을 확인해보기로 했죠.&lt;/p>
+&lt;h3 id="첫-번째-케이스--good">첫 번째 케이스 : Good!&lt;/h3>
+&lt;p>다음 영상은 Redux 스토어의 reducer에 코드를 작성하는 장면입니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-06-2022 13-48-17.gif">&lt;/p>
+&lt;p>상단에 &lt;strong>Todo&lt;/strong> 타입이 명시되어 있고, 상태 값인 &lt;strong>todos&lt;/strong>는 &lt;strong>Todo[]&lt;/strong> 타입입니다. 그래서 &lt;strong>todos&lt;/strong>에 새 항목을 추가하는 코드를 작성하자 copilot이 눈치를 까고 타입에 맞는 적절한 값을 추천해줍니다.&lt;/p>
+&lt;h3 id="두-번째-케이스--good">두 번째 케이스 : Good!&lt;/h3>
+&lt;p>다음은 할 일 목록을 표시하고 그 아래에 새 할일 입력 칸을 추가하는 장면입니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-06-2022 13-48-55.gif">&lt;/p>
+&lt;p>역시 copliot이 눈치까고 &lt;strong>useState&lt;/strong>로 선언된 &lt;strong>todo&lt;/strong> 값을 이용해서 새 할 일 제목을 입력받을 수 있는 &lt;strong>input&lt;/strong> 태크를 완성해줍니다.&lt;/p>
+&lt;h3 id="세-번째-케이스--excellent">세 번째 케이스 : Excellent!&lt;/h3>
+&lt;p>마지막 장면은 커스텀 hook을 만들고 사용하는 상황입니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-06-2022 13-49-34.gif">&lt;/p>
+&lt;p>우선 훅을 작성하고 마지막에 리턴 타입을 추가하는데요, 100% 정확하지는 않지만 리턴하는 항목의 타입을 유추해서 hook의 리턴 타입을 추천해줍니다.&lt;/p>
+&lt;p>그리고 이 훅을 사용하는 장면입니다.&lt;/p>
+&lt;p align="center">&lt;img src="./Oct-06-2022 13-49-59.gif">&lt;/p>
+&lt;p>아무런 힌트를 주지 않았지만 당연히 hook을 사용하겠지? 하면서 아까 만든 hook을 사용하는 코드를 추천해줍니다.&lt;/p>
+&lt;p align="center">&lt;img src="./1577863941_7110_Screenshot_20200101_163200_NAVER.jpg" width="300">&lt;br />오 이건 기대 이상인 듯&lt;/p>
+&lt;h3 id="네-번째-케이스--what-the">네 번째 케이스 : What the&amp;hellip;?&lt;/h3>
+&lt;p>뭘 하려고 하는 건지 나도 모르고 AI도 모를 땐 아무말 대잔치가 벌어집니다.&lt;/p>
+&lt;p align="center">&lt;img src="./1665184864717.gif">&lt;/p>
+&lt;p>이럴 땐 copilot 에게 물어보기 전에 어떤 작업을 할지 생각을 먼저 해야 겠죠&amp;hellip;&lt;/p>
+&lt;p align="center">&lt;img src="./images.jpg">&lt;br />코딩하기 전에 생각했나요?&lt;/p>
+&lt;h2 id="결론--아는-만큼-쓸-수-있다">결론 : 아는 만큼 쓸 수 있다.&lt;/h2>
+&lt;p>아주 짧은 시간 copilot을 써보고 든 생각은 &lt;strong>아는 만큼 쓸 수 있다&lt;/strong>는 거였습니다. 그 이유는 다음과 같습니다.&lt;/p>
+&lt;h3 id="1-ai도-우문현답은-못한다">1. AI도 우문현답은 못한다.&lt;/h3>
+&lt;p>| 우문현답(愚問賢答): 어리석은 질문에 현명한 대답&lt;/p>
+&lt;p>이건 AI가 아닌 사람을 놓고 생각해도 마찬가지인데요, 내가 뭘 모르는지 정확하게 알아야 정확한 답변을 얻을 수 있습니다.&lt;/p>
+&lt;p>사람은 &amp;lsquo;아 이 사람이 이걸 물어보는 건가?&amp;lsquo;하고 예측을 할 수 도 있고, 질문과 답변을 이어가면서 좀 더 정확하게 알려줄 수도 있죠.(물론 아 말해줘도 못 알아먹겠구나 싶은 느낌도 받을 수 있습니다.) 근데 AI라고 별 수 있을까요? &lt;strong>내가 뭘 짜려고 하는지 최소한의 구조를 알고 있고 어떻게 진행되어야 하는 흐름을 알아야 적합한 코드를 제안받을 수 있습니다.&lt;/strong>&lt;/p>
+&lt;p>생각해보면 이런 경우가 아닐까요?&lt;/p>
+&lt;ul>
+&lt;li>잘 기억은 안 나는데 그거 어떻게 하더라?(ex: node.js에서 readline)&lt;/li>
+&lt;li>새로운 SDK나 API 사용법에 대해서 힌트를 얻고 싶을 때(ex: dynamodb 쿼리 어떻게 날렸더라?)&lt;/li>
+&lt;li>알고리즘 구현 방법을 알고 싶을 때(ex: 소수 어떻게 구하더라?)&lt;/li>
+&lt;/ul>
+&lt;p>사실 서두에 소개해드렸던 &lt;a href="https://www.youtube.com/watch?v=R-lIeSR8-hE">코딩접어야겠습니다 만원짜리 AI가 더 코딩 잘함&lt;/a> 영상을 한 번 더 자세히 보시면, 이건 AI 도움 없이도 만들 줄 아는 사람이 이런 저런 테스트를 거쳐서 copilot에게 일을 잘 시키는 방법을 찾아낸 겁니다. 유투브니까 제목이 자극적인건 이해 해야겠죠. 🤔&lt;/p>
+&lt;h3 id="2-제안-받은-코드가-맞는-코드인지-확인할-수-있어야-한다">2. 제안 받은 코드가 맞는 코드인지 확인할 수 있어야 한다.&lt;/h3>
+&lt;p>역시 AI를 빼놓고 생각해도 당연한 이야기 입니다. Stackoverflow에서 검색할 때도 결국은 이게 무슨 코드인지 이해할 수 있어야 제대로 활용할 수 있습니다. Stackoverflow는 다른 사용자들이 답변에 대해서 검증도 해주고 다양한 의견을 남겨주기 때문에 답변에 대한 크로스 체크가 들어가는 경우가 많지만, copliot은 여러분이 직접 체크해야만 합니다. github 역시 공식 문서에서 &lt;a href="https://docs.github.com/en/copilot/overview-of-github-copilot/about-github-copilot#using-github-copilot">이 점을 분명하게 해두고 있습니다.&lt;/a>&lt;/p>
+&lt;h3 id="3-아예-제안할-방법이-없는-경우도-있다">3. 아예 제안할 방법이 없는 경우도 있다.&lt;/h3>
+&lt;p>공개된 코드를 기반으로 학습하고 코드를 제안하기 때문에, 아직 공개되지 않은 코드나 공개된지 얼마 되지 않은 코드는 copliot이 제안할 방법이 없습니다. 막 SDK 새 버전이 나와서 적용해야 할 때, 아마도 copliot은 계속 옛날 버전의 코드를 제안할 겁니다. 자기도 본 적이 없으니까요 😱&lt;/p>
+&lt;p>그리고 이 외에도 여러가지 문제점이 있긴 합니다. 관심이 있는 분들은 이 글 &lt;a href="https://www.fast.ai/posts/2021-07-19-copilot.html">Is GitHub Copilot a blessing, or a curse?&lt;/a> 을 참고하세요.&lt;/p>
+&lt;h2 id="마치며--1-개발자-1-ai-시대의-예감">마치며 : 1 개발자 1 AI 시대의 예감&lt;/h2>
+&lt;p>아직은 장점도 단점도 분명합니다. 개발자의 직업을 위협할 정도가 되려면 한참 멀었습니다. 그리고 자동완성에 너무 의존하게 되면, 개발자 스스로 생각하는 능력이 떨어지지 않을까 하는 걱정이 들기도 했습니다.&lt;/p>
+&lt;p>하지만 이제 사람들은 AI와 공존하며 살아가야 하는 방법을 찾아야 하는 시대가 된 것 같습니다. 아마도 곧 AI의 도움을 받아 코딩하는 게 일상적인 일이 되겠죠. 그렇다면 AI에게 허드렛일을 맡겨 빨리 처리하고 개발자는 좀 더 고차원적인 고민을 하는 연습을 해야 할 것 같습니다.&lt;/p>
+&lt;p>copilot도 계속 발전하고 다른 AI 기술도 등장해서 경쟁도 이루어지겠죠? 그에 맞춰 개발자의 역할도 계속 변화에 적응해야 한다고 생각합니다. 더 발전할 copilot을 기대하며 이만 마치겠습니다.&lt;/p>
+&lt;h2 id="참고-자료">참고 자료&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://realpython.com/github-copilot-python/">GitHub Copilot: Fly With Python at the Speed of Thought&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.fast.ai/posts/2021-07-19-copilot.html">Is GitHub Copilot a blessing, or a curse?&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://yozm.wishket.com/magazine/detail/1634/">&amp;ldquo;세상 참 좋아졌네&amp;rdquo;&amp;hellip;깃허브 코파일럿 리뷰&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.donga.com/news/article/all/20220905/115301579/1">美 미술 공모전서 AI가 그린 그림이 1등상 받아 논란 “예술의 죽음” vs “AI도 사람이 작동”&lt;/a>&lt;/li>
+&lt;/ul></content></item></channel></rss>

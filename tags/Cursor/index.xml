@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Cursor on 엔지니어 생존기록</title><link>https://netscout.github.io/tags/Cursor/</link><description>Recent content in Cursor on 엔지니어 생존기록</description><generator>Hugo -- gohugo.io</generator><language>ko</language><lastBuildDate>Sat, 24 May 2025 09:36:07 +0900</lastBuildDate><atom:link href="https://netscout.github.io/tags/Cursor/index.xml" rel="self" type="application/rss+xml"/><item><title>Cursor와 MCP를 활용한 프로젝트 설정</title><link>https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/</link><pubDate>Sat, 24 May 2025 09:36:07 +0900</pubDate><guid>https://netscout.github.io/posts/cursor%EC%99%80-mcp%EB%A5%BC-%ED%99%9C%EC%9A%A9%ED%95%9C-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%84%A4%EC%A0%95/</guid><description>2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &amp;ldquo;xxx&amp;quot;에 대해서 …</description><content>&lt;h2 id="앉아봐라-그-시절에는-말이야">앉아봐라 그 시절에는 말이야&amp;hellip;&lt;/h2>
+&lt;p>2000년대 까지만 하더라도 꼭꼭 숨어있는 정보를 찾아내는 게 능력이었습니다. 구글에서 적절하게 검색어를 넣고 자료를 뒤지면서 남들보다 더 많은 정보를 빠르게 찾는 나름의 방법을 익혀나갔죠. 외국에서 공부하고 왔던 한 개발자에게 구글에서 &amp;ldquo;xxx&amp;quot;에 대해서 검색해보라고 했더니 정말 검색창에 &amp;ldquo;xxx&amp;quot;만 입력하는 걸 보고 경악했던 일도 있었습니다. 그 당시 구글은 대화 상대도 아니었고 그저 정보를 찾기 위한 검색툴에 불과했으니 툴을 사용해보지 않은 사람들은 사용이 어려웠던 겁니다.&lt;/p>
+&lt;p>그런데 ChatGPT를 기점으로 시대가 많이 변하더니 이젠 변화의 속도가 점점 가속화 되어 잠시만 눈을 떼면 따라잡기가 어렵다는 느낌이 듭니다. 심지어 이러다가 뒤쳐지는 정도가 아니라 아예 쓸모없어지는게 아닌가 하는 공포마저 들게 됩니다. 별 수 있나요&amp;hellip; 최소한 이런 발전에 뒤쳐지지만 말자고 생각하고 노력하는 수 밖에 없죠!&lt;/p>
+&lt;h2 id="mcp가-정말-좋다며-근데">MCP가 정말 좋다며? 근데&amp;hellip;&lt;/h2>
+&lt;p>최근에는 MCP나 A2A 같이 에이전트의 활용에 대한 내용들이 많이 나오는 거 같습니다. A2A는 에이전트 간의 협업에 대한 거고, MCP는 에이전트가 활용할 수 있는 툴에 대한 거니까 범위는 다르지만 어쨌건 에이전트 시대에 에이전트를 좀 더 잘 활용할 수 있는 시대로 변화하고 있음은 분명합니다. 세상은 돌고 도는 거라 2000년대 초반에 SOAP를 기반으로 한 웹서비스의 느낌이 들기도 합니다만 어쨌건 구조가 비슷하게 느껴질 뿐 하는 일은 천지차이죠.&lt;/p>
+&lt;p>MCP에 대해 사람들이 이야기 하는 걸 들어보면 분명 엄청난 프로토콜은 맞습니다만, 저와는 상관이 없어보였습니다. 피그마에서 디자인한 내용을 MCP를 통해 프론트까지 구현한다던지 하는 건 분명 대단하지만, 저는 피그마를 사용하지 않기 때문에 &amp;ldquo;아 저게 어떤 상황에서는 미친 생산성이 나오겠구나&amp;quot;하는 정도였죠. 근데 진짜 누구에게나 사용가능한 미친 MCP를 발견했습니다. 아니, 이미 존재하고 있었지만 조합해보니 대단했던 거죠.&lt;/p>
+&lt;h2 id="context7과-sequential-thinking">Context7과 Sequential Thinking&lt;/h2>
+&lt;p>&lt;a href="https://context7.com">Context7&lt;/a> 은 AI를 사용하는 데 있어 가장 중요한 부분인 context의 문제를 해결해줍니다. AI를 학습된 내용을 바탕으로 코드나 답변을 생성하기 때문에 뭔가 최신으로 업데이트된 내용은 제대로 고려하지 못합니다. Context7은 주요 프레임워크나 SDK등의 사용법을 주요 언어 및 환경 별로 어떻게 사용해야 하는지 등을 정리해서 모아놓은 사이트이고, Context7 MCP는 에이전트가 이러한 내용을 자율적으로 검색해서 구현이나 답변에 참고할 수 있도록 해줍니다. 최신 정보를 에이전트가 알아서 가져다 쓸 수 있다는 거죠!&lt;/p>
+&lt;p>그리고 &lt;a href="https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking">Sequential Thinking MCP Server&lt;/a> 는 에이전트가 사용자의 요청을 받았을 때, 구조화된 사고 과정을 거쳐서 큰 문제를 작게 쪼개고 더 나은 방법을 찾기 위해서 자신의 사고를 검증 하는 등 에이전트의 문제 해결력을 더 높여주는 MCP입니다. 이 MCP는 단독으로 사용해도 큰 효과를 주지만 Context7이랑 합치면 더 시너지가 납니다!&lt;/p>
+&lt;h2 id="직접-해보자">직접 해보자.&lt;/h2>
+&lt;p>우선 &lt;a href="https://youtu.be/TrXBzzsUUY4?si=OrOAD1JO8qobF-S8">개발 동생님의 Context7 소개 영상&lt;/a> 을 보면, 두 MCP를 활용해서 아주 간단한 사칙연산을 하는 MCP 서버를 만드는 과정을 보여줍니다. 저도 한 번 따라해봤습니다. 와 정말 대박이었습니다. 이 간단한 과정을 통해서 실제 동작하는 MCP 서버를 만들 수 있다니! 이렇게 함으로써 저는 typescript를 이용해서 MCP 서버를 어떻게 만들어야 하는지 한 번에 이해할 수 있었습니다.&lt;/p>
+&lt;p>그리고 실제 업무나 개인적으로 스터디할 때 이 MCP를 적극활용하기 시작했습니다. 효과는 정말 대단했습니다. 그 중에 개인 스터디를 위해 준비했던 내용을 공유해보겠습니다.&lt;/p>
+&lt;h2 id="어떤-상황이냐">어떤 상황이냐&lt;/h2>
+&lt;p>최근에 mongodb에 대해서(특히 aggregation pipeline) 한 번 정리하고 싶은 마음이 생겨서 에제 코드를 작성해보고자 했습니다. 그래서 ChatGPT를 통해 기본 구조를 뽑아냈죠. 학생과 선생님 collection이 있는 구조를 설명해주고 초기 데이터를 구성하는 seed 코드를 다음과 같이 생성했습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-javascript" data-lang="javascript">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// seed.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Node.js MongoDB seed script for students and teachers collections
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">MongoClient&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">ObjectId&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;mongodb&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">faker&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">require&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;faker&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Configuration
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">MONGO_URI&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">env&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">MONGO_URI&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="s2">&amp;#34;mongodb://localhost:27017&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">DB_NAME&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">process&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">env&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">DB_NAME&lt;/span> &lt;span class="o">||&lt;/span> &lt;span class="s2">&amp;#34;school&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Constants
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kr">const&lt;/span> &lt;span class="nx">GRADES&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">2&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">4&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">5&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">6&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">const&lt;/span> &lt;span class="nx">CLASSES&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="s2">&amp;#34;A&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s2">&amp;#34;B&amp;#34;&lt;/span>&lt;span class="p">];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// Utility to generate random scores array
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="kd">function&lt;/span> &lt;span class="nx">generateScores&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">count&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">3&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">5&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nb">Array&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">from&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">length&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">count&lt;/span> &lt;span class="p">}).&lt;/span>&lt;span class="nx">map&lt;/span>&lt;span class="p">(()&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">math&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">english&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">coding&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">datatype&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">number&lt;/span>&lt;span class="p">({&lt;/span> &lt;span class="nx">min&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">40&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">max&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="mi">100&lt;/span> &lt;span class="p">}),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}));&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kr">async&lt;/span> &lt;span class="kd">function&lt;/span> &lt;span class="nx">seed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">client&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">MongoClient&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">MONGO_URI&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nx">useUnifiedTopology&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="kc">true&lt;/span> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">try&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">connect&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">db&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">db&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">DB_NAME&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Clear existing data
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;students&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">deleteMany&lt;/span>&lt;span class="p">({});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;teachers&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">deleteMany&lt;/span>&lt;span class="p">({});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Generate students
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">students&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">GRADES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">CLASSES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">-&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kd">let&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="mi">18&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="nx">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">students&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">_id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">ObjectId&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">findName&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">grade&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">class&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">className&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">scores&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">generateScores&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Generate teachers
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">teachers&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">[];&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">GRADES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">CLASSES&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">forEach&lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">=&amp;gt;&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">className&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="sb">`&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">grade&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">-&lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">cls&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb">`&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">teachers&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">push&lt;/span>&lt;span class="p">({&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">_id&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="k">new&lt;/span> &lt;span class="nx">ObjectId&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">name&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">faker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">name&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">findName&lt;/span>&lt;span class="p">(),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">grade&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">class&lt;/span>&lt;span class="o">:&lt;/span> &lt;span class="nx">className&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Insert seed data
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kr">const&lt;/span> &lt;span class="nx">studentResult&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;students&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">insertMany&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">students&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">const&lt;/span> &lt;span class="nx">teacherResult&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="kr">await&lt;/span> &lt;span class="nx">db&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">collection&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;teachers&amp;#34;&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="nx">insertMany&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="nx">teachers&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Inserted &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">studentResult&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">insertedCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> students`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="sb">`Inserted &lt;/span>&lt;span class="si">${&lt;/span>&lt;span class="nx">teacherResult&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">insertedCount&lt;/span>&lt;span class="si">}&lt;/span>&lt;span class="sb"> teachers`&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">log&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Seeding completed successfully.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">catch&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nx">err&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nx">console&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">error&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s2">&amp;#34;Error during seeding:&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="nx">err&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">finally&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kr">await&lt;/span> &lt;span class="nx">client&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="nx">close&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nx">seed&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>이 코드가 아주 정확하냐 뭐 그런건 그렇게 중요하진 않았습니다. 나중에 수정하면 되니까요. 그리고 빈 폴더를 하나 만들고 &lt;code>Cursor&lt;/code>를 열고 다음과 같이 요청했습니다. 사용된 모델은 &lt;code>Cluade 3.7 Sonnet&lt;/code> 입니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">i need to create node.js app for studying mongodb aggregation pipeline.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">so i need to create basic project structure and seed script using mongodb node.js driver.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use context7 for looking for how to use node.js mongodb driver.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use sequantial thinking mcp to plan how to create basic project structure and seeding mongodb collestion.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">here&amp;#39;s starter seed script:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// seed.js
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Node.js MongoDB seed script for students and teachers collections
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const { MongoClient, ObjectId } = require(&amp;#39;mongodb&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const faker = require(&amp;#39;faker&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const MONGO_URI = process.env.MONGO_URI || &amp;#39;mongodb://localhost:27017&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const DB_NAME = process.env.DB_NAME || &amp;#39;school&amp;#39;;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Constants
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const GRADES = [1, 2, 3, 4, 5, 6];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">const CLASSES = [&amp;#39;A&amp;#39;, &amp;#39;B&amp;#39;];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">// Utility to generate random scores array
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">function generateScores() {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const count = faker.datatype.number({ min: 3, max: 5 });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> return Array.from({ length: count }).map(() =&amp;gt; ({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> math: faker.datatype.number({ min: 40, max: 100 }),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> english: faker.datatype.number({ min: 40, max: 100 }),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> coding: faker.datatype.number({ min: 40, max: 100 })
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }));
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">async function seed() {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const client = new MongoClient(MONGO_URI, { useUnifiedTopology: true });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> try {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await client.connect();
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const db = client.db(DB_NAME);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Clear existing data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await db.collection(&amp;#39;students&amp;#39;).deleteMany({});
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await db.collection(&amp;#39;teachers&amp;#39;).deleteMany({});
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Generate students
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const students = [];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> GRADES.forEach(grade =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> CLASSES.forEach(cls =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const className = `${grade}-${cls}`;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> for (let i = 0; i &amp;lt; 18; i++) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> students.push({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> _id: new ObjectId(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> name: faker.name.findName(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> grade,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> class: className,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> scores: generateScores()
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Generate teachers
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const teachers = [];
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> GRADES.forEach(grade =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> CLASSES.forEach(cls =&amp;gt; {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const className = `${grade}-${cls}`;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> teachers.push({
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> _id: new ObjectId(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> name: faker.name.findName(),
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> grade,
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> class: className
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> });
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> // Insert seed data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const studentResult = await db.collection(&amp;#39;students&amp;#39;).insertMany(students);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> const teacherResult = await db.collection(&amp;#39;teachers&amp;#39;).insertMany(teachers);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(`Inserted ${studentResult.insertedCount} students`);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(`Inserted ${teacherResult.insertedCount} teachers`);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.log(&amp;#39;Seeding completed successfully.&amp;#39;);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> } catch (err) {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> console.error(&amp;#39;Error during seeding:&amp;#39;, err);
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> } finally {
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> await client.close();
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">seed();
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Context7 MCP를 통해 mongodb 드라이버의 사용법을 참고하고, Sequential Thinking MCP를 어떻게 작업할지 구상해보라고 했습니다. 그러자 에이전트가 MCP를 호출하기 시작합니다.&lt;/p>
+&lt;p align="center">&lt;img src="./01.png">&lt;/p>
+&lt;p>mongodb와 node.js driver 연결방법, 그리고 aggregation pipeline 사용법을 참고하고 있네요!&lt;/p>
+&lt;p>그리고 최종적으로 다음과 같이 정리해줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-markdown" data-lang="markdown">&lt;span class="line">&lt;span class="cl">I&amp;#39;ve created a complete Node.js project for studying MongoDB aggregation pipelines. Here&amp;#39;s what I&amp;#39;ve set up:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Project Structure
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mongodb-aggregation-study/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── package.json # Dependencies and npm scripts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── .gitignore # Git ignore file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── README.md # Project documentation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── src/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── config/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── db.js # MongoDB connection configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── examples/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ ├── basic.js # Basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── advanced.js # Advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── index.js # Main application entry point
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── scripts/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── seed.js # Database seeding script
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Key Features
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">1.&lt;/span> &lt;span class="gs">**Database Configuration**&lt;/span>: A reusable MongoDB connection module in &lt;span class="sb">`db.js`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">2.&lt;/span> &lt;span class="gs">**Seed Script**&lt;/span>: Updated version of your script using &lt;span class="sb">`@faker-js/faker`&lt;/span> to populate the database with students and teachers data
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">3.&lt;/span> &lt;span class="gs">**Aggregation Examples**&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> **Basic**: Simple examples using $match, $group, $project, and $lookup
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> **Advanced**: Complex examples with $expr, $bucket, $reduce, and $facet
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">4.&lt;/span> &lt;span class="gs">**NPM Scripts**&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run seed`&lt;/span> - Populate the database
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run example:basic`&lt;/span> - Run basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm run example:advanced`&lt;/span> - Run advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> &lt;span class="sb">`npm start`&lt;/span> - Run the main application
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Getting Started
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To use this project:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">1.&lt;/span> Ensure MongoDB is running locally (or update the connection URI in your environment)
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">2.&lt;/span> Install dependencies with &lt;span class="sb">`npm install`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">3.&lt;/span> Run &lt;span class="sb">`npm run seed`&lt;/span> to populate the database
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">4.&lt;/span> Try the examples with &lt;span class="sb">`npm run example:basic`&lt;/span> or &lt;span class="sb">`npm run example:advanced`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">The project provides a practical environment for learning and experimenting with MongoDB&amp;#39;s powerful aggregation pipeline features.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mongodb-aggregation-study/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── package.json # Dependencies and npm scripts
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── .gitignore # Git ignore file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── README.md # Project documentation
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── src/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── config/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── db.js # MongoDB connection configuration
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── examples/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ ├── basic.js # Basic aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">│ └── advanced.js # Advanced aggregation examples
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">├── index.js # Main application entry point
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── scripts/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">└── seed.js # Database seeding script
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>딱히 제가 요청하지 않았던 프로젝트 구조와 기초 및 고급 예제, 그리고 커맨드 까지 생성해서 알려줍니다!&lt;/p>
+&lt;p>이번엔 mongodb를 도커로 실행하는 방법을 요청해보겠습니다. 이번에도 context7 MCP를 통해 사용법을 참고하라고 알려줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">very well! i need to run mongodb using docker on local. can you add instruction in @README.md for this?
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">use context7 if you need to reference how to do it
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그러자 이렇게 답변해줍니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-markdown" data-lang="markdown">&lt;span class="line">&lt;span class="cl">Here are clear instructions you can add to your &lt;span class="sb">`README.md`&lt;/span> for running MongoDB locally using Docker. This is the most common and recommended way for local development, and it will work cross-platform.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">---
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">## Running MongoDB Locally with Docker
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">If you don&amp;#39;t have MongoDB installed on your machine, you can easily run it using Docker:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker run --name mongodb-aggregation-study -d -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=mongo -e MONGO_INITDB_ROOT_PASSWORD=mongo mongo:latest
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> This command will:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Pull the latest MongoDB image if you don&amp;#39;t have it.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Start a MongoDB server in a container named &lt;span class="sb">`mongodb-aggregation-study`&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Expose MongoDB on the default port &lt;span class="sb">`27017`&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">-&lt;/span> Set the root username and password to &lt;span class="sb">`mongo`&lt;/span> (you can change these if you want).
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Connecting from your app
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> By default, your &lt;span class="sb">`.env`&lt;/span> should use:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> MONGO_URI=mongodb://localhost:27017
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> DB_NAME=school
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">-&lt;/span> If you want to use authentication, update your &lt;span class="sb">`.env`&lt;/span>:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> MONGO_URI=mongodb://mongo:mongo&lt;span class="ni">@localhost:27017&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> DB_NAME=school
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> And make sure your MongoDB connection code supports authentication.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">### Stopping and Removing the Container
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="gu">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To stop MongoDB:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker stop mongodb-aggregation-study
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">To remove the container:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">docker rm mongodb-aggregation-study
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그리고 데이터 구조에 변경이 필요해서, 구조를 변경함과 동시에 예제로 같이 수정해달라고 요청했습니다.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" class="chroma">&lt;code class="language-plaintext" data-lang="plaintext">&lt;span class="line">&lt;span class="cl">currently @generateScores() generate randomly 3-5 scores for math, english, coding. but let&amp;#39;s update this to:
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">{
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> mid: { math, english, coding },
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> final: { math, english, coding }
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">}
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">and update example aggregations if needed.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>그러면 예제까지 싹 다 고쳐줍니다! 물론 중간 중간에 .env의 호출이 빠져서 환경 변수를 못읽어오는 바람에 mongodb에 접속이 안된다던지 하는 사소한 문제가 있긴 했지만요.&lt;/p>
+&lt;h2 id="ai-시대는-일하는-방법이-다르구나">AI 시대는 일하는 방법이 다르구나!&lt;/h2>
+&lt;p>AI를 개발에 활용한지 2년이 다 되어가는데, 너무 많이 부족합니다. 그만큼 AI의 발전이 빠르다는 말이겠죠. 최근에는 그냥 자연어 기반으로 에이전트를 백그라운드에서 굴리는 OpenAI Codex나 Claude Code 등이 새로운 개발 트렌드로 떠오르는 거 같습니다. 이렇게 되면 에이전트를 여러 개 굴리면서 그냥 말로만 코딩하는 시대가 될 거 같기도 한데요&amp;hellip; 아직 돈이 없어서 이런 툴들을 써보진 못했습니다. 조만간에 기회가 있으면 시도해봐야죠. 적어도 뒤쳐지지는 말아야죠!&lt;/p></content></item></channel></rss>

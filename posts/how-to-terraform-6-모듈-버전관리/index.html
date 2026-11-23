@@ -1,0 +1,172 @@
+<!doctype html><html lang=ko><head><title>How to Terraform(6) - 모듈 버전관리 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="이전 글에서는 모듈을 활용해서 반복되는 리소스를 재사용 가능한 형태로 정의하는 방법을 알아봤습니다. 그런데 모듈로 재사용성을 높이는 건 좋지만, 문제가 있긴 했습니다. 모듈을 업데이트해야 하는 경우, 이미 모듈을 사용해서 생성된 리소스 역시 업데이트되는 모듈의 영향을 …"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/how-to-terraform-6-%EB%AA%A8%EB%93%88-%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="How to Terraform(6) - 모듈 버전관리"><meta property="og:description" content="이전 글에서는 모듈을 활용해서 반복되는 리소스를 재사용 가능한 형태로 정의하는 방법을 알아봤습니다. 그런데 모듈로 재사용성을 높이는 건 좋지만, 문제가 있긴 했습니다. 모듈을 업데이트해야 하는 경우, 이미 모듈을 사용해서 생성된 리소스 역시 업데이트되는 모듈의 영향을 …"><meta property="og:url" content="https://netscout.github.io/posts/how-to-terraform-6-%EB%AA%A8%EB%93%88-%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2023-12-09 14:04:13 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/how-to-terraform-6-%EB%AA%A8%EB%93%88-%EB%B2%84%EC%A0%84%EA%B4%80%EB%A6%AC/>How to Terraform(6) - 모듈 버전관리</a></h1><div class=post-meta><time class=post-date>2023-12-09</time>
+<span class=post-reading-time>6 분 (1174 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/Terraform/>Terraform</a>&nbsp;
+#<a href=https://netscout.github.io/tags/IaC/>IaC</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#시리즈-목차>시리즈 목차</a></li><li><a href=#git-으로-모듈-버전-관리하기>Git 으로 모듈 버전 관리하기</a></li><li><a href=#모듈-리포지토리-만들기>모듈 리포지토리 만들기</a></li><li><a href=#모듈-리포지토리-참조하기>모듈 리포지토리 참조하기</a></li><li><a href=#terraform-에게-git-리포지토리-접근-허용해주기>Terraform 에게 Git 리포지토리 접근 허용해주기</a><ul><li><a href=#ssh-키-생성-및-등록하기>SSH 키 생성 및 등록하기</a></li><li><a href=#모듈-업데이트하기>모듈 업데이트하기</a></li><li><a href=#업데이트된-모듈-참조하기>업데이트된 모듈 참조하기</a></li></ul></li><li><a href=#정리>정리</a></li></ul></nav></div><div class=post-content><div><h2 id=시리즈-목차>시리즈 목차<a href=#시리즈-목차 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li><a href=../How%20to%20Terraform%281%29%20-%20%ED%99%98%EA%B2%BD%20%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0%2FHow%20to%20Terraform%281%29%20-%20%ED%85%8C%EB%9D%BC%ED%8F%BC%EA%B3%BC%EC%9D%98%20%EA%B0%80%EB%B2%BC%EC%9A%B4%28%3F%29%20%EC%B2%AB%20%EB%A7%8C%EB%82%A8.md>How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남</a></li><li><a href=../How%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5%2FHow%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5.md>How to Terraform(2) - 변수와 출력</a></li><li><a href=../How%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC%2FHow%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC.md>How to Terraform(3) - 상태 관리</a></li><li><a href=../How%20to%20Terraform%284%29%20-%20%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC%20%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0%2FHow%20to%20Terraform%284%29%20-%20%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC%20%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0.md>How to Terraform(4) - 상태관리 개선하기</a></li><li><a href=../How%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88%2FHow%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88.md>How to Terraform(5) - 모듈</a></li></ul><p><a href=../How%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88%2FHow%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88.md>이전 글</a>에서는 모듈을 활용해서 반복되는 리소스를 재사용 가능한 형태로 정의하는 방법을 알아봤습니다. 그런데 모듈로 재사용성을 높이는 건 좋지만, 문제가 있긴 했습니다. 모듈을 업데이트해야 하는 경우, 이미 모듈을 사용해서 생성된 리소스 역시 업데이트되는 모듈의 영향을 받게 된다는 점입니다. 모듈을 업데이트 하되 기존 리소스는 기존 모듈을 그대로 사용할 수 있도록 하위호환성을 도입하려면 어떻게 해야 할까요?</p><h2 id=git-으로-모듈-버전-관리하기>Git 으로 모듈 버전 관리하기<a href=#git-으로-모듈-버전-관리하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>여기서는 Git을 이용해서 모듈의 버전을 관리하고, 리소스도 각 모듈의 버전을 지정해서 참조하도록 해서 모듈과 리소스 간의 의존성을 관리하는 방법을 알아보겠습니다. 이렇게 하면 모듈을 업데이트할 때 기존 리소스에 영향을 주지 않으면서도 모듈을 업데이트할 수 있습니다. Git으로 모듈 버전을 관리하려면 2개의 Git 리포지토리가 필요합니다. 하나는 모듈을 관리하는 리포지토리, 또 하나는 모듈을 사용하여 리소스를 정의하는 리포지토리입니다. 우선 모듈을 관리하는 리포지토리를 만들어 보겠습니다.</p><h2 id=모듈-리포지토리-만들기>모듈 리포지토리 만들기<a href=#모듈-리포지토리-만들기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>모듈을 관리하는 리포지토리를 terraform-modules, 모듈을 사용해서 리소스를 관리하는 리포지토리를 terraform-live라고 가정하고 진행하겠습니다. 먼저 terraform-modules 리포지토리를 생성하고, <a href=../How%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88%2FHow%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88.md>이전 글</a>에서 작성했던 EC2 인스턴스 모듈을 이 리포지토리에 옮깁니다. 폴더 구조는 다음과 같습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-gdscript3 data-lang=gdscript3><span class=line><span class=cl><span class=n>terraform</span><span class=o>-</span><span class=n>modules</span>
+</span></span><span class=line><span class=cl><span class=err>└──</span> <span class=n>modules</span>
+</span></span><span class=line><span class=cl>    <span class=err>└──</span> <span class=n>ec2</span>
+</span></span><span class=line><span class=cl>        <span class=err>├──</span> <span class=n>main</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl>        <span class=err>├──</span> <span class=n>outputs</span><span class=o>.</span><span class=n>tf</span>
+</span></span><span class=line><span class=cl>        <span class=err>└──</span> <span class=n>variables</span><span class=o>.</span><span class=n>tf</span>
+</span></span></code></pre></div><p>그리고 이 리포지토리를 GitHub에 푸시합니다. 그리고 다음 명령을 통해 모듈의 버전을 태그합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; git tag -a v0.0.1 -m <span class=s2>&#34;EC2 모듈 추가&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>~/src/terraform-modules main
+</span></span><span class=line><span class=cl>&gt; git push --follow-tags
+</span></span><span class=line><span class=cl>Enumerating objects: 1, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Counting objects: 100% <span class=o>(</span>1/1<span class=o>)</span>, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Writing objects: 100% <span class=o>(</span>1/1<span class=o>)</span>, <span class=m>185</span> bytes <span class=p>|</span> 185.00 KiB/s, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Total <span class=m>1</span> <span class=o>(</span>delta 0<span class=o>)</span>, reused <span class=m>0</span> <span class=o>(</span>delta 0<span class=o>)</span>, pack-reused <span class=m>0</span>
+</span></span><span class=line><span class=cl>To https://github.com/netscout/terraform-modules.git
+</span></span><span class=line><span class=cl> * <span class=o>[</span>new tag<span class=o>]</span>         v0.0.1 -&gt; v0.0.1
+</span></span></code></pre></div><blockquote><p>만약 이전 커밋에 지정된 태그를 삭제하고 싶다면 <code>git tag -d v0.0.1</code>의 형태로 명령을 사용하고 새로운 커밋에 다시 태그를 붙이면 됩니다. 이미 태그를 푸시한 상태라면 <code>git push --delete origin v0.0.1</code> 명령을 사용하면 됩니다.</p></blockquote><h2 id=모듈-리포지토리-참조하기>모듈 리포지토리 참조하기<a href=#모듈-리포지토리-참조하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>EC2 모듈의 첫 버전을 v0.0.1로 태그 했습니다. 이제 리소스 리포지토리를 만들어서 이 모듈을 참조해보겠습니다. 우선 terraform-live라는 리포지토리를 생성하고, <a href=../How%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88%2FHow%20to%20Terraform%285%29%20-%20%EB%AA%A8%EB%93%88.md>이전 글</a>에서 작성했던 EC2 인스턴스 리소스를 이 리포지토리로 옮겨줍니다. 폴더 구조는 다음과 같습니다.</p><p>terraform-live 폴더 안에 dev 폴더를 만들고, 그 안에 ec2 폴더를 만들고, service1 폴더를 만들어서 EC2 인스턴스 리소스를 옮겨줍니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>terraform-live
+</span></span><span class=line><span class=cl>└── dev
+</span></span><span class=line><span class=cl>    └── ec2
+</span></span><span class=line><span class=cl>        └── service1
+</span></span><span class=line><span class=cl>            ├── main.tf
+</span></span><span class=line><span class=cl>            └── outputs.tf
+</span></span></code></pre></div><p>이전 글에서 작성한 <code>main.tf</code>는 로컬에 있는 모듈을 참조하도록 설정되어 있습니다. 로컬 대신에 Git의 모듈 리포지토리를 참조하도록 변경하겠습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>// 모듈 사용
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>module</span> <span class=s2>&#34;ec2&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  //source = &#34;../../modules/ec2&#34;
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>source</span> <span class=o>=</span> <span class=s2>&#34;github.com/netscout/terraform-modules//modules/ec2?ref=v0.0.1&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 모듈에 전달할 인자
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>env</span> <span class=o>=</span> <span class=s2>&#34;dev&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>port</span> <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>source 속성을 자세히 보시면 중간에 <code>//</code>가 들어가 있습니다. <code>//</code>의 앞쪽에는 모듈이 저장된 git 리포지토리의 주소를, 그리고 뒤 쪽에는 모듈의 경로와 태그로 지정된 버전을 명시합니다. 모듈을 참조하기 위한 Terraform 코드 작성은 완료됐지만 아직 한 가지 더 검토해야 할 게 남아있습니다.</p><h2 id=terraform-에게-git-리포지토리-접근-허용해주기>Terraform 에게 Git 리포지토리 접근 허용해주기<a href=#terraform-에게-git-리포지토리-접근-허용해주기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>아마도 모듈 리포지토리는 private 리포지토리로 생성되었을 겁니다. 회사에서 작업하는 모듈에 대한 정의를 public 하게 공개할 수는 없기 때문이죠. 그렇다면 Terraform이 private 리포지토리에 접근할 수 있는 방법을 알려줘야 합니다.</p><h3 id=ssh-키-생성-및-등록하기>SSH 키 생성 및 등록하기<a href=#ssh-키-생성-및-등록하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>Terraform이 모듈 리포지토리를 참조하기 위해서 SSH 키를 생성해서 github에 등록해야 합니다. 여기서는 ed25519 알고리즘을 사용해서 키를 생성하겠습니다. ed25519는 rsa보다 보안이 더 강화된 알고리즘으로, 최근에는 ed25519를 사용하는 것을 권장하고 있습니다. 다음 명령을 실행하여 키를 생성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># &#34;your_email@example.com&#34; 대신에 github 이메일 주소를 입력하세요.</span>
+</span></span><span class=line><span class=cl>&gt; ssh-keygen -t ed25519 -C <span class=s2>&#34;your_email@example.com&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># ssh-agent를 실행하여, 키를 등록한다.</span>
+</span></span><span class=line><span class=cl>&gt; <span class=nb>eval</span> <span class=s2>&#34;</span><span class=k>$(</span>ssh-agent -s<span class=k>)</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>&gt; ssh-add ~/.ssh/id_ed25519
+</span></span></code></pre></div><p>그리고 생성된 키의 내용을 클립보드에 복사한 후, 그 내용을 github에 등록합니다. 키의 내용을 클립보드에 복사하려면 ubuntu에서는 xclip을 사용하고,</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; cat ~/.ssh/id_ed25519.pub <span class=p>|</span> xclip -selection clipboard
+</span></span></code></pre></div><p>mac에서는 pbcopy를 사용하면 됩니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; cat ~/.ssh/id_ed25519.pub <span class=p>|</span> pbcopy
+</span></span></code></pre></div><p>이제 클립보드에 복사된 키를 github에 등록할 차례입니다. github에 접속하고 우측 상단의 아바타 버튼을 누르고 <code>Settings</code> > <code>SSH and GPG keys</code> > <code>New SSH key</code>를 클릭합니다.</p><p><code>Title</code>에는 키를 등록하는 컴퓨터의 이름을 적고, <code>Key</code>에는 위에서 복사한 키를 붙여넣으면 완료입니다. 그러면 모듈을 잘 참조하는지 확인해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>cd</span> dev/ec2/service1
+</span></span><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>Initializing the backend...
+</span></span><span class=line><span class=cl>Initializing modules...
+</span></span><span class=line><span class=cl>Downloading git::https://github.com/netscout/terraform-modules.git?ref<span class=o>=</span>v0.0.1 <span class=k>for</span> ec2...
+</span></span><span class=line><span class=cl>- ec2 in .terraform/modules/ec2/modules/ec2
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Terraform has been successfully initialized!
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>정상적으로 잘 참조하고 있습니다! 이제 모듈을 업데이트 해볼까요?</p><h3 id=모듈-업데이트하기>모듈 업데이트하기<a href=#모듈-업데이트하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>모듈 리포지토리의 EC2 모듈을 업데이트 해보겠습니다. <code>modules/ec2/main.tf</code> 파일을 열고, locals의 변수 정의를 수정하고 aws_security_group.sg 리소스에 ssh 접속을 위한 인바운트 규칙을 추가합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// 로컬 변수 정의
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>locals</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // EC2 인스턴스에 할당할 태그
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>security_group_name</span> <span class=o>=</span> <span class=s2>&#34;</span><span class=si>${</span><span class=nb>var</span><span class=p>.</span><span class=nx>name</span><span class=si>}</span><span class=s2>-</span><span class=si>${</span><span class=nb>var</span><span class=p>.</span><span class=nx>env</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;ec2&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>ami_id</span><span class=c1> # 변수 ami_id 참조
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>instance_type</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>vpc_security_group_ids</span> <span class=o>=</span> <span class=p>[</span><span class=nx>aws_security_group</span><span class=p>.</span><span class=nx>sg</span><span class=p>.</span><span class=nx>id</span><span class=p>]</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 최초 인스턴스 생성 시에만 실행
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>user_data</span> <span class=o>=</span> <span class=o>&lt;&lt;-EOF</span><span class=s>
+</span></span></span><span class=line><span class=cl><span class=s>              #!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=s>              echo &#34;Hello, World&#34; &gt; index.html
+</span></span></span><span class=line><span class=cl><span class=s>              nohup busybox httpd -f -p ${var.port} &amp;
+</span></span></span><span class=line><span class=cl><span class=s>              </span><span class=o>EOF</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>tags</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>Name</span> <span class=o>=</span> <span class=s2>&#34;terraform-example&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_security_group&#34;</span> <span class=s2>&#34;sg&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>name</span> <span class=o>=</span> <span class=nx>local</span><span class=p>.</span><span class=nx>security_group_name</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 인바운드 규칙
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ingress</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>from_port</span>   <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>port</span>
+</span></span><span class=line><span class=cl>    <span class=nx>to_port</span>     <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>port</span>
+</span></span><span class=line><span class=cl>    <span class=nx>protocol</span>    <span class=o>=</span> <span class=s2>&#34;tcp&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>cidr_blocks</span> <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>cidr_blocks</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ssh 접속을 위한 인바운드 규칙(새로 추가)
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ingress</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>from_port</span>   <span class=o>=</span> <span class=m>22</span>
+</span></span><span class=line><span class=cl>    <span class=nx>to_port</span>     <span class=o>=</span> <span class=m>22</span>
+</span></span><span class=line><span class=cl>    <span class=nx>protocol</span>    <span class=o>=</span> <span class=s2>&#34;tcp&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>cidr_blocks</span> <span class=o>=</span> <span class=nb>var</span><span class=p>.</span><span class=nx>cidr_blocks</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>다음으로 variables.tf 파일을 열고, name 변수를 추가합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// name 변수 추가
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>variable</span> <span class=s2>&#34;name&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span> <span class=nx>string</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>variable</span> <span class=s2>&#34;env&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span> <span class=nx>string</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 변수 값이 &#34;dev&#34;, &#34;stg&#34;, &#34;prod&#34; 중에 하나로 설정되야함
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>validation</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>condition</span> <span class=o>=</span><span class=nb> contains</span><span class=p>([</span><span class=s2>&#34;dev&#34;</span><span class=p>,</span> <span class=s2>&#34;stg&#34;</span><span class=p>,</span> <span class=s2>&#34;prod&#34;</span><span class=p>],</span> <span class=nb>var</span><span class=p>.</span><span class=nx>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>error_message</span> <span class=o>=</span> <span class=s2>&#34;env must be one of dev, stg, prod&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>variable</span> <span class=s2>&#34;ami_id&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span> <span class=nx>string</span>
+</span></span><span class=line><span class=cl>  <span class=nx>default</span> <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>variable</span> <span class=s2>&#34;instance_type&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span> <span class=nx>string</span>
+</span></span><span class=line><span class=cl>  <span class=nx>default</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>variable</span> <span class=s2>&#34;port&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span> <span class=nx>number</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>variable</span> <span class=s2>&#34;cidr_blocks&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>type</span> <span class=o>=</span><span class=nb> list</span><span class=p>(</span><span class=nx>string</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=nx>default</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;0.0.0.0/0&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 변경 내용을 커밋하고, 모듈 리포지토리를 푸시, 그리고 태그를 추가합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; git tag -a v0.0.2 -m <span class=s2>&#34;EC2에 SSH 인바운드 규칙 추가&#34;</span>
+</span></span><span class=line><span class=cl>&gt; git push --follow-tags
+</span></span><span class=line><span class=cl>Enumerating objects: 1, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Counting objects: 100% <span class=o>(</span>1/1<span class=o>)</span>, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Writing objects: 100% <span class=o>(</span>1/1<span class=o>)</span>, <span class=m>207</span> bytes <span class=p>|</span> 207.00 KiB/s, <span class=k>done</span>.
+</span></span><span class=line><span class=cl>Total <span class=m>1</span> <span class=o>(</span>delta 0<span class=o>)</span>, reused <span class=m>0</span> <span class=o>(</span>delta 0<span class=o>)</span>, pack-reused <span class=m>0</span>
+</span></span><span class=line><span class=cl>To https://github.com/netscout/terraform-modules.git
+</span></span><span class=line><span class=cl> * <span class=o>[</span>new tag<span class=o>]</span>         v0.0.2 -&gt; v0.0.2
+</span></span></code></pre></div><h3 id=업데이트된-모듈-참조하기>업데이트된 모듈 참조하기<a href=#업데이트된-모듈-참조하기 class=hanchor arialabel=Anchor>&#8983;</a></h3><p>이제 업데이트된 모듈을 참조해보겠습니다. terraform-live/dev/ec2/service2 폴더를 추가하고, terraform-live/dev/ec2/service1 폴더에 작성된 main.tf, outputs.tf 파일을 복사해서 붙여넣습니다. 그리고 service2 폴더에 있는 main.tf 파일을 열고, 다음과 같이 모듈의 버전을 v0.0.2로 변경하고 name 변수에 인자를 할당합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>// 모듈 사용
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>module</span> <span class=s2>&#34;ec2&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  //source = &#34;../../modules/ec2&#34;
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>source</span> <span class=o>=</span> <span class=s2>&#34;github.com/netscout/terraform-modules//modules/ec2?ref=v0.0.2&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 모듈에 전달할 인자
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>name</span><span class=o>=</span><span class=s2>&#34;service2&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>env</span> <span class=o>=</span> <span class=s2>&#34;dev&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>port</span> <span class=o>=</span> <span class=m>8080</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>init 명령을 실행해서 모듈 참조를 확인합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>cd</span> dev/ec2/service2
+</span></span><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>Initializing the backend...
+</span></span><span class=line><span class=cl>Initializing modules...
+</span></span><span class=line><span class=cl>Downloading git::https://github.com/netscout/terraform-modules.git?ref<span class=o>=</span>v0.0.2 <span class=k>for</span> ec2...
+</span></span><span class=line><span class=cl>- ec2 in .terraform/modules/ec2/modules/ec2
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>v0.0.2 버전의 모듈의 정상적으로 참조하고 있죠? v0.0.1을 참조하는 service1을 다시 확인해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 모듈 다시 업데이트 하기</span>
+</span></span><span class=line><span class=cl>&gt; tf get -update
+</span></span><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>service1의 리소스 정의에는 모듈 v0.0.2에서 새로 추가된 name 변수가 지정되어 있지 않지만, name 변수가 아직 추가되지 않는 v0.0.1을 참조하고 있기 때문에 모듈의 버전 변경과 관계없이 잘 동작하는 걸 확인할 수 있습니다.</p><h2 id=정리>정리<a href=#정리 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>Git으로 모듈의 버전을 관리하면 모듈이 변경되더라도 이전에 생성된 리소스에는 영향을 주지 않고 안전하게 모듈을 업데이트할 수 있습니다. 점점 좋아지고 있죠? 그런데 여전히 중복은 남아있습니다. service1과 service2 에는 각각 provider에 대한 정의가 있습니다. 그리고 여기서는 backend를 사용하지 않았지만, S3같은 backend를 사용하면 그 설정 역시 각 리소스에 중복해서 들어가게 될 겁니다. 다음에는 이런 중복을 제거할 수 있는 방법을 알아보겠습니다.</p><h1 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h1><ul><li><a href=https://www.terraformupandrunning.com/>Terraform Up and Running, 3rd Edition</a></li></ul><h1 id=license>License<a href=#license class=hanchor arialabel=Anchor>&#8983;</a></h1><p><a href=https://creativecommons.org/licenses/by-nc-nd/2.0/kr/>저작자표시-비영리-변경금지 2.0 대한민국 (CC BY-NC-ND 2.0 KR)</a></p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/how-to-terraform-7-%EC%BD%94%EB%93%9C-%EC%A4%91%EB%B3%B5-%EC%B5%9C%EC%86%8C%ED%99%94%ED%95%98%EA%B8%B0/><span class=button__icon>←</span>
+<span class=button__text>How to Terraform(7) - 코드 중복 최소화하기</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/how-to-terraform-5-%EB%AA%A8%EB%93%88/><span class=button__text>How to Terraform(5) - 모듈</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>

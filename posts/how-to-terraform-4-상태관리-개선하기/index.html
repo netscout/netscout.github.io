@@ -1,0 +1,212 @@
+<!doctype html><html lang=ko><head><title>How to Terraform(4) - 상태관리 개선하기 :: 엔지니어 생존기록</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="이전 글에서는 Terraform의 상태에 대해 알아보았고, 로컬 파일로 관리할 때의 단점을 해결하기 위해서 상태를 S3에 저장하는 방법을 알아보았습니다. 하지만 여전히 문제가 남아있었습니다. 그 문제가 뭐였는지 알아볼까요?"><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=https://netscout.github.io/posts/how-to-terraform-4-%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC-%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0/><link rel=stylesheet href=https://netscout.github.io/styles.css><link rel="shortcut icon" href=https://netscout.github.io/img/theme-colors/paper.png><link rel=apple-touch-icon href=https://netscout.github.io/img/theme-colors/paper.png><meta name=twitter:card content="summary"><meta property="og:locale" content="ko"><meta property="og:type" content="article"><meta property="og:title" content="How to Terraform(4) - 상태관리 개선하기"><meta property="og:description" content="이전 글에서는 Terraform의 상태에 대해 알아보았고, 로컬 파일로 관리할 때의 단점을 해결하기 위해서 상태를 S3에 저장하는 방법을 알아보았습니다. 하지만 여전히 문제가 남아있었습니다. 그 문제가 뭐였는지 알아볼까요?"><meta property="og:url" content="https://netscout.github.io/posts/how-to-terraform-4-%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC-%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0/"><meta property="og:site_name" content="엔지니어 생존기록"><meta property="og:image" content="https://netscout.github.io/img/favicon/paper.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627"><meta property="article:published_time" content="2023-11-25 14:14:54 +0900 +0900"><style>pre,pre code,code[class*=language-],pre[class*=language-]{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body class=paper><div class="container center"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>엔지니어 생존기록</div></a></div><ul class="menu menu--mobile"><li class=menu__trigger>Menu&nbsp;▾</li><li><ul class=menu__dropdown><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></li></ul></div><nav class=navigation-menu><ul class="navigation-menu__inner menu--desktop"><li><a href=/posts/>글 목록</a></li><li><a href=/about/>소개</a></li><li><a href=/tags/>태그</a></li></ul></nav></header><div class=content><article class=post><h1 class=post-title><a href=https://netscout.github.io/posts/how-to-terraform-4-%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC-%EA%B0%9C%EC%84%A0%ED%95%98%EA%B8%B0/>How to Terraform(4) - 상태관리 개선하기</a></h1><div class=post-meta><time class=post-date>2023-11-25</time>
+<span class=post-reading-time>7 분 (1288 단어)</span></div><span class=post-tags>#<a href=https://netscout.github.io/tags/Terraform/>Terraform</a>&nbsp;
+#<a href=https://netscout.github.io/tags/IaC/>IaC</a>&nbsp;</span><div class=table-of-contents><h2>목차</h2><nav id=TableOfContents><ul><li><a href=#시리즈-목차>시리즈 목차</a></li><li><a href=#현재-상태관리의-문제점>현재 상태관리의 문제점</a></li><li><a href=#폴더로-나눠서-관리하기>폴더로 나눠서 관리하기</a></li><li><a href=#정리>정리</a></li></ul></nav></div><div class=post-content><div><h2 id=시리즈-목차>시리즈 목차<a href=#시리즈-목차 class=hanchor arialabel=Anchor>&#8983;</a></h2><ul><li><a href=../How%20to%20Terraform%281%29%20-%20%ED%99%98%EA%B2%BD%20%EC%84%A4%EC%A0%95%ED%95%98%EA%B8%B0%2FHow%20to%20Terraform%281%29%20-%20%ED%85%8C%EB%9D%BC%ED%8F%BC%EA%B3%BC%EC%9D%98%20%EA%B0%80%EB%B2%BC%EC%9A%B4%28%3F%29%20%EC%B2%AB%20%EB%A7%8C%EB%82%A8.md>How to Terraform(1) - 테라폼과의 가벼운(?) 첫 만남</a></li><li><a href=../How%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5%2FHow%20to%20Terraform%282%29%20-%20%EB%B3%80%EC%88%98%EC%99%80%20%EC%B6%9C%EB%A0%A5.md>How to Terraform(2) - 변수와 출력</a></li><li><a href=../How%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC%2FHow%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC.md>How to Terraform(3) - 상태 관리</a></li></ul><p><a href=../How%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC%2FHow%20to%20Terraform%283%29%20-%20%EC%83%81%ED%83%9C%20%EA%B4%80%EB%A6%AC.md>이전 글</a>에서는 Terraform의 상태에 대해 알아보았고, 로컬 파일로 관리할 때의 단점을 해결하기 위해서 상태를 S3에 저장하는 방법을 알아보았습니다. 하지만 여전히 문제가 남아있었습니다. 그 문제가 뭐였는지 알아볼까요?</p><h2 id=현재-상태관리의-문제점>현재 상태관리의 문제점<a href=#현재-상태관리의-문제점 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>이전 글에서는 모든 테라폼 리소스가 한 개의 상태 파일로 관리되고 있었습니다. 예시를 위해서 새로 폴더를 만들고 다음 코드를 <code>main.tf</code>에 작성합니다.</p><blockquote><p>일단 예시를 위해서 S3를 사용하지 않고 로컬 파일을 사용합니다.</p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 init, plan, apply 명령을 실행합니다.</p><blockquote><p><code>terraform</code>이라고 매번 입력하는게 어려우니 .zshrc나 .bashrc에 다음과 같이 alias 설정을 해서 <code>tf</code>로 사용하는 것도 방법입니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>alias tf=terraform
+</span></span></code></pre></div></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Terraform has been successfully initialized!
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Apply complete! Resources: <span class=m>1</span> added, <span class=m>0</span> changed, <span class=m>0</span> destroyed.
+</span></span></code></pre></div><p>자 여기까지는 뭐 기존과 다를 게 하나도 없습니다. 여기에 두번째 EC2 인스턴스를 추가해볼까요?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>//main.tf 기존 코드...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example2&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 다시 plan을 실행해봅니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>aws_instance.example: Refreshing state... <span class=o>[</span><span class=nv>id</span><span class=o>=</span>i-00c12ab694ff80dfa<span class=o>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>두번째 EC2 인스턴스를 추가할 때 우리의 관심사는 <code>aws_instance.example2</code> 리소스 입니다. 하지만 plan 명령을 실행하자 이미 추가된 리소스인 <code>aws_instance.example</code>에 대한 검사가 먼저 진행되었죠? <code>aws_instance.example</code> 리소스가 <code>aws_instance.example2</code> 리소스와 하나의 상태 파일로 관리되고 있기 때문에 Terraform으로서는 어쩔 수 없이 상태 파일의 내용과 테라폼 코드의 리소스를 모두 비교할 수 밖에 없는 거죠. EC2 인스턴스 몇 개는 금방 끝나니까 별 문제가 아닐 수 있지만, 이런 식으로 리소스가 계속 늘어나다 보면 어느새 plan 한번 실행하는데 몇 분이 걸리는 일도 발생할 수 있습니다.</p><p>그리고 좀 더 복잡한 문제가 생기는 경우도 있습니다. 만약 반드시 변수로 입력받아야 하는 값이 있다고 생각해볼까요? 테라폼 코드에 작성된 상당수의 리소스가 환경변수 등을 통해서 변수를 입력받아야 한다면 어떨까요? 내가 관심 있는 리소스 하나 작업하기 위해서 모든 변수 값을 제대로 설정해야만 하는 문제가 발생합니다. 정리해보자면,</p><ul><li>여러 리소스가 하나의 상태 파일로 관리되기 때문에, 리소스가 추가됨에 따라 상태 파일이 점점 거대해진다.</li><li>따라서 새로 추가하는 리소스에 대한 plan, apply 명령에도 기존에 관리되고 있는 모든 리소스에 대한 검사가 진행되므로 시간이 점점 더 오래걸린다.</li><li>모든 리소스가 하나의 상태 파일로 관리되면 다른 사람이 일부 리소스를 변경했을 때 변경된 상태 값 역시 공유된다. 만약 다른 사람이 변경한 테라폼 코드를 업데이트 받지 않은 상태에서 내 작업을 진행하면 리소스의 상태를 다시 변경 이전 상태로 되돌리는 등의 예상치 못한 오류가 발생할 수 있다.</li></ul><p>이러한 문제를 해결하기 위해서는 각 리소스에 대한 상태를 최대한 작게 나눠서 관리하는 게 좋을 것 같습니다. 나눠서 관리한다는 게 생각보다 별 거 없습니다. 그냥 폴더를 쪼개면 됩니다.</p><h2 id=폴더로-나눠서-관리하기>폴더로 나눠서 관리하기<a href=#폴더로-나눠서-관리하기 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>S3 백엔드와 EC2 인스턴스 2개를 만드는 상황을 가정하면 폴더는 대강 이렇게 나눌 수 있습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>.
+</span></span><span class=line><span class=cl>├── global
+</span></span><span class=line><span class=cl>│   └── s3
+</span></span><span class=line><span class=cl>│       └── main.tf
+</span></span><span class=line><span class=cl>├── dev
+</span></span><span class=line><span class=cl>│   └── ec2
+</span></span><span class=line><span class=cl>│       └── example
+</span></span><span class=line><span class=cl>│           └── main.tf
+</span></span><span class=line><span class=cl>│       └── example2
+</span></span><span class=line><span class=cl>│           └── main.tf
+</span></span></code></pre></div><p>우선 <code>global</code> 폴더에는 S3 백엔드를 생성하는 코드를 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># S3 버킷 생성
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_s3_bucket&#34;</span> <span class=s2>&#34;terraform_state&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>bucket</span> <span class=o>=</span> <span class=s2>&#34;terraform-state-example-20231125&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 실수로 버킷이 삭제되지 않도록 하려면 아래 주석을 해제하세요.
+</span></span></span><span class=line><span class=cl><span class=c1>  # lifecycle {
+</span></span></span><span class=line><span class=cl><span class=c1>  #   prevent_destroy = true
+</span></span></span><span class=line><span class=cl><span class=c1>  # }
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># 버킷 버전 관리 활성화(상태 파일의 히스토리를 관리하기 위함)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_s3_bucket_versioning&#34;</span> <span class=s2>&#34;enabled&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>bucket</span> <span class=o>=</span> <span class=nx>aws_s3_bucket</span><span class=p>.</span><span class=nx>terraform_state</span><span class=p>.</span><span class=nx>id</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>versioning_configuration</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>status</span> <span class=o>=</span> <span class=s2>&#34;Enabled&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># S3에 저장될 때 암호화 하도록 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_s3_bucket_server_side_encryption_configuration&#34;</span> <span class=s2>&#34;default&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>bucket</span> <span class=o>=</span> <span class=nx>aws_s3_bucket</span><span class=p>.</span><span class=nx>terraform_state</span><span class=p>.</span><span class=nx>id</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>rule</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>apply_server_side_encryption_by_default</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>sse_algorithm</span> <span class=o>=</span> <span class=s2>&#34;AES256&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># 모든 public access를 차단(실수로 버킷이 공개되지 않도록 하기 위함)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_s3_bucket_public_access_block&#34;</span> <span class=s2>&#34;public_access&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>bucket</span> <span class=o>=</span> <span class=nx>aws_s3_bucket</span><span class=p>.</span><span class=nx>terraform_state</span><span class=p>.</span><span class=nx>id</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>block_public_acls</span>   <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=nx>block_public_policy</span> <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=nx>ignore_public_acls</span>  <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=nx>restrict_public_buckets</span> <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># 여러 사람이 동시에 상태 파일을 수정하지 못하도록 DynamoDB를 사용한 락 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>resource</span> <span class=s2>&#34;aws_dynamodb_table&#34;</span> <span class=s2>&#34;terraform_locks&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>name</span> <span class=o>=</span> <span class=s2>&#34;terraform_locks&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>billing_mode</span> <span class=o>=</span> <span class=s2>&#34;PAY_PER_REQUEST&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>hash_key</span> <span class=o>=</span> <span class=s2>&#34;LockID&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nx>attribute</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>name</span> <span class=o>=</span> <span class=s2>&#34;LockID&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>type</span> <span class=o>=</span> <span class=s2>&#34;S&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 우선 init, plan, apply 를 실행해서 백엔드 설정을 위한 S3 버킷을 생성합니다.</p><blockquote><p>참고로, VS Code에서는 cd 명령 대신에 폴더에 우클릭하고 <code>통합 터미널에서 열기</code>를 선택하면 해당 폴더로 터미널이 이동합니다.</p><p align=center><img src=./01.png></p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>cd</span> global/s3
+</span></span><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Terraform has been successfully initialized!
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Plan: <span class=m>5</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Apply complete! Resources: <span class=m>5</span> added, <span class=m>0</span> changed, <span class=m>0</span> destroyed.
+</span></span></code></pre></div><p>그리고 생성된 S3에 현재 생성된 리소스의 상태를 저장하기 위해서 <code>main.tf</code>상단에 다음 코드를 추가합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=nx>terraform</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 필요한 프로바이더 목록과 버전 정보
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>required_providers</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>aws</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>source</span> <span class=o>=</span> <span class=s2>&#34;hashicorp/aws&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=nx>version</span> <span class=o>=</span> <span class=s2>&#34;~&gt; 5.0&#34;</span><span class=c1> # 5.0 이상 버전 사용
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 상태 파일을 S3에 저장하도록 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>backend</span> <span class=s2>&#34;s3&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>bucket</span> <span class=o>=</span> <span class=s2>&#34;terraform-state-example-20231125&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일이 저장될 경로
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>key</span>    <span class=o>=</span> <span class=s2>&#34;global/s3/terraform.tfstate&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 락으로 사용할 DynamoDB 테이블
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>dynamodb_table</span> <span class=o>=</span> <span class=s2>&#34;terraform_locks&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 암호화
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>encrypt</span>        <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>// main.tf 기존 코드...
+</span></span></span></code></pre></div><p>여기서 주목해야 할 점은 상태 파일이 저장될 경로를 리소스 파일이 정의된 폴더 경로와 일치하도록 설정했다는 점입니다. 이렇게 하면 리로스와 상태 파일의 경로가 일치하므로 상태 파일을 덮어쓴다던지 하는 오류를 피할 수 있습니다. 이제 init 명령을 통해 벡엔드를 설정하겠습니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>Initializing the backend...
+</span></span><span class=line><span class=cl>Do you want to copy existing state to the new backend?
+</span></span><span class=line><span class=cl>  Pre-existing state was found <span class=k>while</span> migrating the previous <span class=s2>&#34;local&#34;</span> backend to the
+</span></span><span class=line><span class=cl>  newly configured <span class=s2>&#34;s3&#34;</span> backend. No existing state was found in the newly
+</span></span><span class=line><span class=cl>  configured <span class=s2>&#34;s3&#34;</span> backend. Do you want to copy this state to the new <span class=s2>&#34;s3&#34;</span>
+</span></span><span class=line><span class=cl>  backend? Enter <span class=s2>&#34;yes&#34;</span> to copy and <span class=s2>&#34;no&#34;</span> to start with an empty state.
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  Enter a value: yes
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Successfully configured the backend <span class=s2>&#34;s3&#34;</span>! Terraform will automatically
+</span></span><span class=line><span class=cl>use this backend unless the backend configuration changes.
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></div><p>콘솔에서 S3를 확인해보면,</p><p align=center><img src=./02.png></p><p>지정된 경로에 상태 파일이 생성된 것을 확인할 수 있습니다.</p><blockquote><p>이렇게 리소스 별로 상태를 관리할 때 아무래도 자주 관리하지 않는 리소스가 생기기 마련입니다. 시간이 한참 지나서 다시 관리를 해야 할 때, 이전에 사용하던 프로바이더의 버전과 현재 버전이 차이가 많이 날 수도 있겠죠. 그럴 때 기존에 작성한 코드가 제대로 동작하지 않는 문제가 생길 수도 있으므로 프로바이더의 버전을 명시하는 것도 좋은 방법입니다!</p></blockquote><p>이제 <code>dev/ec2/example/main.tf</code> 파일을 생성하고 다음 코드를 작성합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-terraform data-lang=terraform><span class=line><span class=cl><span class=nx>terraform</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 필요한 프로바이더 목록과 버전 정보
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>required_providers</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>aws</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nx>source</span> <span class=o>=</span> <span class=s2>&#34;hashicorp/aws&#34;</span>
+</span></span><span class=line><span class=cl>      <span class=nx>version</span> <span class=o>=</span> <span class=s2>&#34;~&gt; 5.0&#34;</span><span class=c1> # 5.0 이상 버전 사용
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 상태 파일을 S3에 저장하도록 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>backend</span> <span class=s2>&#34;s3&#34;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>bucket</span> <span class=o>=</span> <span class=s2>&#34;terraform-state-example-20231125&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일이 저장될 경로
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>key</span>    <span class=o>=</span> <span class=s2>&#34;dev/ec2/example/terraform.tfstate&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 락으로 사용할 DynamoDB 테이블
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>dynamodb_table</span> <span class=o>=</span> <span class=s2>&#34;terraform_locks&#34;</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>    # 상태 파일을 암호화
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>encrypt</span>        <span class=o>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>// AWS 프로바이더 설정
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kr>provider</span> <span class=s2>&#34;aws&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // 아시아 태평양(서울) 리전
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>region</span> <span class=o>=</span> <span class=s2>&#34;ap-northeast-2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kr>resource</span> <span class=s2>&#34;aws_instance&#34;</span> <span class=s2>&#34;example&#34;</span> <span class=p>{</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  // ap-northeast-2 리전의 Ubuntu 20.04 AMI
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=nx>ami</span>           <span class=o>=</span> <span class=s2>&#34;ami-0c6e5afdd23291f73&#34;</span>
+</span></span><span class=line><span class=cl>  <span class=nx>instance_type</span> <span class=o>=</span> <span class=s2>&#34;t2.micro&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>그리고 역시 <code>dev/ec2/example</code> 폴더에서 init, plan, apply 명령을 실행합니다.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>&gt; <span class=nb>cd</span> dev/ec2/example
+</span></span><span class=line><span class=cl>&gt; tf init
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Terraform has been successfully initialized!
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf plan
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Plan: <span class=m>1</span> to add, <span class=m>0</span> to change, <span class=m>0</span> to destroy.
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; tf apply
+</span></span><span class=line><span class=cl>...
+</span></span><span class=line><span class=cl>Apply complete! Resources: <span class=m>1</span> added, <span class=m>0</span> changed, <span class=m>0</span> destroyed.
+</span></span></code></pre></div><p>그리고 <code>dev/ec2/example2/main.tf</code> 파일을 생성하고 동일한 과정으로 EC2 인스턴스를 추가할 수 있습니다.</p><h2 id=정리>정리<a href=#정리 class=hanchor arialabel=Anchor>&#8983;</a></h2><p>이제 우리는 각 리소스에 대해 개별적으로 상태 관리를 진행할 수 있습니다. 리소스는 각각의 상태를 가지므로 다른 리소스에 대해 신경쓰지 않고 관리할 수 있고, 특히 새로운 리소스를 추가할 때 역시 기존 리소스의 상태에 대해서 전혀 신경쓰지 않아도 됩니다. 다만 역시나 한 가지 마음에 걸리는 게 있습니다. EC2 인스턴스를 작성 할 때 저희는 동일한 코드를 복붙해서 새로운 인스턴스를 생성했었죠. 사실 지금은 EC2에 별다른 설정을 하지 않아서 뭐 복잡할 건 없습니다만, VPC등의 설정에 따라서는 EC2도 매우 복잡해질 수 있고 저희가 Terraform으로 EC2만 관리할 것도 아니기 때문에 이 부분은 더 나은 방법이 필요해보입니다. 다음 글에서는 모듈을 통해 중복을 줄이는 방법을 알아보겠습니다.</p><h1 id=참고자료>참고자료<a href=#참고자료 class=hanchor arialabel=Anchor>&#8983;</a></h1><ul><li><a href=https://www.terraformupandrunning.com/>Terraform Up and Running, 3rd Edition</a></li></ul><h1 id=license>License<a href=#license class=hanchor arialabel=Anchor>&#8983;</a></h1><p><a href=https://creativecommons.org/licenses/by-nc-nd/2.0/kr/>저작자표시-비영리-변경금지 2.0 대한민국 (CC BY-NC-ND 2.0 KR)</a></p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>다른 글 읽기</span><hr></div><div class=pagination__buttons><span class="button previous"><a href=https://netscout.github.io/posts/how-to-terraform-5-%EB%AA%A8%EB%93%88/><span class=button__icon>←</span>
+<span class=button__text>How to Terraform(5) - 모듈</span>
+</a></span><span class="button next"><a href=https://netscout.github.io/posts/how-to-terraform-3-%EC%83%81%ED%83%9C-%EA%B4%80%EB%A6%AC/><span class=button__text>How to Terraform(3) - 상태 관리</span>
+<span class=button__icon>→</span></a></span></div></div></article></div><footer class=footer><div class=footer__inner><div class=copyright><span>© 2026 Powered by <a href=https://gohugo.io>Hugo</a></span>
+<span>:: <a href=https://github.com/mirus-ua/hugo-theme-re-terminal target=_blank>Theme</a> made by <a href=https://github.com/mirus-ua target=_blank>Mirus</a></span></div></div></footer><script type=text/javascript src=/bundle.min.js></script></div></body></html>
